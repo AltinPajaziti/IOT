@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+.venv/
+venv/
+
+# Build output
+dist/
+build/
+bin/
+obj/
+.angular/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Local configuration and editor state
+.env
+.env.*
+.vscode/
+*.user
+*.suo
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Model weights and generated media
+*.pt
+*.onnx
+backend/uploads/

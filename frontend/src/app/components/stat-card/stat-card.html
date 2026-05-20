@@ -1,0 +1,10 @@
+<div class="stat-card" [ngClass]="accent">
+  <div class="stat-header">
+    <span class="stat-label">{{ label }}</span>
+    <span class="stat-badge" [ngClass]="accent">{{ badge }}</span>
+  </div>
+  <div class="stat-value">{{ value }}</div>
+  <div class="stat-bar">
+    <div class="stat-bar-fill" [style.width.%]="barPct"></div>
+  </div>
+</div>

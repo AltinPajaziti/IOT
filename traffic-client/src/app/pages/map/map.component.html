@@ -1,0 +1,313 @@
+<div class="shell">
+
+  <!-- ══════════════ LEFT SIDEBAR ══════════════ -->
+  <aside class="sidebar">
+
+    <div class="brand">
+      <div class="brand-row">
+        <div class="brand-dot"></div>
+        <h1>TrafficWatch</h1>
+      </div>
+      <p class="sub">Prishtina · Live traffic intelligence</p>
+      <p class="sub sub-note">YOLO detection · SQL Server · Leaflet</p>
+    </div>
+
+    <!-- Overview metrics -->
+    <section class="panel">
+      <h2>Overview</h2>
+      <div class="metrics">
+        <div class="metric">
+          <span>Cameras</span>
+          <strong>{{ snapshots().length }}</strong>
+        </div>
+        <div class="metric">
+          <span>Total vehicles</span>
+          <strong [style.color]="totalColor()">{{ totalVehicles() }}</strong>
+        </div>
+        <div class="metric">
+          <span>Avg density</span>
+          <strong [style.color]="avgDensityColor()">{{ avgDensity() }}</strong>
+        </div>
+        <div class="metric">
+          <span>Next refresh</span>
+          <strong class="countdown">{{ formatCountdown(countdown()) }}</strong>
+        </div>
+      </div>
+    </section>
+
+    <!-- Camera list -->
+    <section class="panel cam-section">
+      <h2>Cameras / Sensors</h2>
+      @for (snap of snapshots(); track snap.cameraId) {
+        <div
+          class="camera"
+          [class.active]="snap.cameraId === selected()?.cameraId"
+          (click)="selectCamera(snap)"
+        >
+          <div class="row">
+            <div class="cam-title-row">
+              <span class="cam-icon">📷</span>
+              <span class="title">{{ snap.cameraName }}</span>
+            </div>
+            <span class="density-chip"
+              [style.background]="densityBg(snap.density)"
+              [style.color]="densityColor(snap.density)"
+              [style.border-color]="densityColor(snap.density) + '44'">
+              {{ snap.density }}
+            </span>
+          </div>
+          <div class="cam-loc">{{ snap.location }}</div>
+          <div class="cam-stats-row">
+            <span class="vtype-mini">🚗 {{ snap.cars }}</span>
+            <span class="vtype-mini">🚛 {{ snap.trucks }}</span>
+            <span class="vtype-mini">🚌 {{ snap.buses }}</span>
+            <span class="vtype-mini">🏍️ {{ snap.motorcycles }}</span>
+          </div>
+          <div class="cam-bar-wrap">
+            <div class="cam-bar">
+              <div class="cam-bar-fill"
+                [style.width.%]="densityPctOf(snap.density)"
+                [style.background]="densityColor(snap.density)">
+              </div>
+            </div>
+            <span class="cam-count">{{ snap.totalVehicles }} vehicles</span>
+          </div>
+        </div>
+      }
+      @if (snapshots().length === 0 && !loading()) {
+        <div class="no-data-small">No snapshots yet — waiting for first poll…</div>
+      }
+    </section>
+
+    <!-- Data sources -->
+    <section class="panel">
+      <h2>Data Sources</h2>
+      <div class="data-source">
+        <div class="source-icon">CAM</div>
+        <div>
+          <div class="source-title">YOLO Detection</div>
+          <div class="source-desc">Real-time vehicle counting via YOLOv8 on live streams.</div>
+        </div>
+      </div>
+      <div class="data-source">
+        <div class="source-icon">API</div>
+        <div>
+          <div class="source-title">.NET Traffic API</div>
+          <div class="source-desc">Polls backend, stores snapshots to SQL Server LocalDB.</div>
+        </div>
+      </div>
+      <div class="data-source">
+        <div class="source-icon">MAP</div>
+        <div>
+          <div class="source-title">CARTO Dark Tiles</div>
+          <div class="source-desc">Dark basemap with live camera markers.</div>
+        </div>
+      </div>
+    </section>
+
+  </aside>
+
+  <!-- ══════════════ MAP CENTER ══════════════ -->
+  <section class="map-stage">
+    <div id="map"></div>
+
+    <!-- floating top bar -->
+    <div class="topbar">
+      <div class="live-strip">
+        <div class="pill">
+          <span class="status-dot" [class.offline]="!!error()"></span>
+          <strong>{{ lastUpdate() ? (lastUpdate() | date:'HH:mm:ss') : 'Loading…' }}</strong>
+          <span class="muted-text">live data</span>
+        </div>
+        @if (selected()) {
+          <div class="pill">
+            <strong [style.color]="densityColor(selected()!.density)">{{ selected()!.cameraName }}</strong>
+            <span class="muted-text">{{ selected()!.density }} — {{ selected()!.totalVehicles }} vehicles</span>
+          </div>
+        }
+      </div>
+      @if (error()) {
+        <div class="source-pill">⚠ {{ error() }}</div>
+      }
+    </div>
+
+    <!-- loading overlay -->
+    @if (loading()) {
+      <div class="map-loading">
+        <div class="ring"></div>
+        <span>Loading traffic data…</span>
+      </div>
+    }
+
+    <!-- legend -->
+    <div class="map-legend">
+      <span class="leg-title">Traffic Density</span>
+      <div class="leg-item">
+        <span class="leg-dot" style="background:#22c55e;border:2px solid #fff;box-shadow:0 0 0 1.5px #22c55e"></span>
+        <span class="leg-label" style="color:#15803d">Low — clear</span>
+      </div>
+      <div class="leg-item">
+        <span class="leg-dot" style="background:#f59e0b;border:2px solid #fff;box-shadow:0 0 0 1.5px #f59e0b"></span>
+        <span class="leg-label" style="color:#b45309">Medium — slow</span>
+      </div>
+      <div class="leg-item">
+        <span class="leg-dot" style="background:#ef4444;border:2px solid #fff;box-shadow:0 0 0 1.5px #ef4444"></span>
+        <span class="leg-label" style="color:#dc2626">High — congested</span>
+      </div>
+      <div class="leg-note">Icon = camera · Badge = vehicle count · Pulse = alert</div>
+    </div>
+  </section>
+
+  <!-- ══════════════ RIGHT INSPECTOR ══════════════ -->
+  <aside class="inspector">
+
+    <!-- Selected camera detail -->
+    <section class="panel">
+      <h2>Camera Inspector</h2>
+      @if (selected(); as snap) {
+        <div class="cam-detail">
+          <div class="cd-head">
+            <div>
+              <div class="cd-name">{{ snap.cameraName }}</div>
+              <div class="cd-loc">{{ snap.location }}, {{ snap.city }}</div>
+              <div class="cd-time">{{ snap.capturedAt | date:'HH:mm:ss · dd MMM' }}</div>
+            </div>
+            <span class="density-chip lg"
+              [style.background]="densityBg(snap.density)"
+              [style.color]="densityColor(snap.density)"
+              [style.border-color]="densityColor(snap.density) + '44'">
+              {{ snap.density }}
+            </span>
+          </div>
+
+          <!-- Density bar -->
+          <div class="density-block">
+            <div class="db-row">
+              <span class="db-label">Traffic density</span>
+              <span style="font-size:11px;color:var(--muted)">{{ densityPctOf(snap.density) }}%</span>
+            </div>
+            <div class="db-bar">
+              <div class="db-fill"
+                [style.width.%]="densityPctOf(snap.density)"
+                [style.background]="densityColor(snap.density)">
+              </div>
+            </div>
+            <div class="db-ticks"><span>Low</span><span>Medium</span><span>High</span></div>
+          </div>
+
+          <!-- Vehicle type cards -->
+          <div class="vtype-grid">
+            <div class="vtype accent-green">
+              <div class="vt-emoji">🚗</div>
+              <div class="vt-val">{{ snap.cars }}</div>
+              <div class="vt-label">Cars</div>
+              <div class="vt-bar"><div class="vt-fill" [style.width.%]="pct(snap.cars, 30)"></div></div>
+            </div>
+            <div class="vtype accent-violet">
+              <div class="vt-emoji">🚛</div>
+              <div class="vt-val">{{ snap.trucks }}</div>
+              <div class="vt-label">Trucks</div>
+              <div class="vt-bar"><div class="vt-fill" [style.width.%]="pct(snap.trucks, 10)"></div></div>
+            </div>
+            <div class="vtype accent-blue">
+              <div class="vt-emoji">🚌</div>
+              <div class="vt-val">{{ snap.buses }}</div>
+              <div class="vt-label">Buses</div>
+              <div class="vt-bar"><div class="vt-fill" [style.width.%]="pct(snap.buses, 10)"></div></div>
+            </div>
+            <div class="vtype accent-amber">
+              <div class="vt-emoji">🏍️</div>
+              <div class="vt-val">{{ snap.motorcycles }}</div>
+              <div class="vt-label">Motos</div>
+              <div class="vt-bar"><div class="vt-fill" [style.width.%]="pct(snap.motorcycles, 10)"></div></div>
+            </div>
+          </div>
+
+          <!-- Stats strip -->
+          <div class="stats-row">
+            <div class="sr-item">
+              <div class="sr-val" [style.color]="densityColor(snap.density)">{{ snap.totalVehicles }}</div>
+              <div class="sr-lbl">Total</div>
+            </div>
+            <div class="sr-div"></div>
+            <div class="sr-item">
+              <div class="sr-val">{{ snap.fps | number:'1.1-1' }}</div>
+              <div class="sr-lbl">FPS</div>
+            </div>
+            <div class="sr-div"></div>
+            <div class="sr-item">
+              <div class="sr-val" style="font-size:1rem">
+                {{ snap.density === 'High' ? '🔴' : snap.density === 'Medium' ? '🟡' : '🟢' }}
+              </div>
+              <div class="sr-lbl">Status</div>
+            </div>
+          </div>
+        </div>
+      } @else {
+        <div class="no-data-small">Click a camera icon on the map</div>
+      }
+    </section>
+
+    <!-- Alerts -->
+    <section class="panel">
+      <h2>Alerts <span class="tag blue">Live</span></h2>
+      <div class="alerts">
+        @for (alert of alerts(); track alert.id) {
+          <div class="alert"
+            [class.alert-red]="alert.level==='high'"
+            [class.alert-yellow]="alert.level==='medium'">
+            <div class="row">
+              <span class="title">
+                {{ alert.level === 'high' ? '🔴' : '🟡' }} {{ alert.camera }}
+              </span>
+              <span class="tag"
+                [style.background]="densityBg(alert.density)"
+                [style.color]="densityColor(alert.density)">
+                {{ alert.density }}
+              </span>
+            </div>
+            <div class="small">{{ alert.message }} · {{ alert.time }}</div>
+          </div>
+        }
+        @if (alerts().length === 0) {
+          <div class="no-data-small">✅ No alerts · all routes clear</div>
+        }
+      </div>
+    </section>
+
+    <!-- Routes summary -->
+    <section class="panel routes-section">
+      <h2>Routes Summary</h2>
+      @for (snap of snapshots(); track snap.cameraId) {
+        <div class="route"
+          [class.route-blocked]="snap.density === 'High'"
+          [class.route-slow]="snap.density === 'Medium'"
+          (click)="selectCamera(snap)">
+          <div class="row">
+            <span class="title">
+              {{ snap.density === 'High' ? '🔴' : snap.density === 'Medium' ? '🟡' : '🟢' }}
+              {{ snap.cameraName }}
+            </span>
+            <span class="route-status"
+              [style.color]="densityColor(snap.density)">
+              {{ snap.density === 'High' ? 'Blocked' : snap.density === 'Medium' ? 'Slow' : 'Clear' }}
+            </span>
+          </div>
+          <div class="bar">
+            <i [style.width.%]="densityPctOf(snap.density)"
+               [style.background]="densityColor(snap.density)"></i>
+          </div>
+          <div class="route-footer">
+            <span class="small">{{ snap.location }}</span>
+            <span class="route-count">{{ snap.totalVehicles }} 🚗</span>
+          </div>
+        </div>
+      }
+      @if (snapshots().length === 0) {
+        <div class="no-data-small">Waiting for data…</div>
+      }
+    </section>
+
+  </aside>
+
+</div>

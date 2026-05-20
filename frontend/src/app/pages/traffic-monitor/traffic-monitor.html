@@ -1,0 +1,147 @@
+<div class="tm-root">
+
+  <!-- ── Top bar ─────────────────────────────────────────────────────────── -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-dot"></div>
+      <span class="brand-name">TrafficWatch</span>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="cam-tabs">
+      <button
+        *ngFor="let cam of cameras"
+        class="cam-tab"
+        [class.active]="cam.id === selectedCameraId"
+        (click)="onCameraChange(cam.id)"
+      >{{ cam.name }}</button>
+    </div>
+
+    <div class="topbar-right" *ngIf="stats()">
+      <span class="live-pill"><span class="dot"></span>LIVE</span>
+      <span class="tag">{{ stats()!.fps }} fps</span>
+      <span class="tag">{{ stats()!.timestamp | date:'HH:mm:ss' }}</span>
+    </div>
+  </header>
+
+  <!-- ── Error ───────────────────────────────────────────────────────────── -->
+  <div class="err-banner" *ngIf="statusMessage()">{{ statusMessage() }}</div>
+
+  <!-- ── Loading ─────────────────────────────────────────────────────────── -->
+  <div class="loading" *ngIf="loading()">
+    <div class="ring"></div>
+    <span>Connecting to detection service…</span>
+  </div>  
+
+  <!-- ── Main workspace ──────────────────────────────────────────────────── -->
+  <div class="workspace" *ngIf="!loading()">
+
+    <!-- LEFT: video + detection stream -->
+    <section class="col-video">
+
+      <div class="cam-strip">
+        <div class="cam-meta">
+          <span class="cam-name">{{ selectedCamera?.name }}</span>
+          <span class="cam-loc">{{ selectedCamera?.location }}, {{ selectedCamera?.city }}</span>
+        </div>
+        <div class="strip-right">
+          <label class="upload-btn">
+            Upload video
+            <input type="file" accept="video/*" (change)="onFileSelected($event)" hidden>
+          </label>
+          <span class="upload-msg" *ngIf="uploadStatus()">{{ uploadStatus() }}</span>
+        </div>
+      </div>
+
+      <div class="video-box">
+
+        <!-- MJPEG annotated detection stream -->
+        <img
+          *ngIf="selectedCamera?.hasStreamUrl && !streamError()"
+          [src]="mjpegUrl"
+          class="vfeed"
+          alt="Live detection"
+          (error)="onStreamError()"
+          (load)="onStreamLoad()"
+        />
+
+        <!-- Gjirafa iframe embed fallback -->
+        <iframe
+          *ngIf="!selectedCamera?.hasStreamUrl && safeEmbedUrl"
+          [src]="safeEmbedUrl"
+          class="vembed"
+          frameborder="0"
+          allowfullscreen
+        ></iframe>
+
+        <!-- Offline state -->
+        <div class="voffline" *ngIf="(!selectedCamera?.hasStreamUrl && !safeEmbedUrl) || streamError()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3">
+            <path d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z"/>
+          </svg>
+          <span class="off-title">Stream unavailable</span>
+          <a [href]="selectedCamera?.gjirafaPage" target="_blank" class="off-link">Watch on Gjirafa</a>
+        </div>
+
+        <!-- Detection badge -->
+        <div class="det-badge" *ngIf="selectedCamera?.hasStreamUrl && !streamError()">
+          YOLO Detection Active
+        </div>
+      </div>
+
+      <div class="no-url-bar" *ngIf="selectedCamera && !selectedCamera.hasStreamUrl">
+        No stream URL for <strong>{{ selectedCamera.name }}</strong>.
+        Run <code>python extract_streams.py</code> to refresh.
+      </div>
+    </section>
+
+    <!-- RIGHT: stats sidebar -->
+    <aside class="col-stats">
+
+      <!-- Density -->
+      <div class="density-panel" [ngClass]="densityClass">
+        <div class="dp-row">
+          <span class="dp-title">Traffic Density</span>
+          <span class="dp-chip">{{ stats()?.density ?? '—' }}</span>
+        </div>
+        <div class="dp-bar"><div class="dp-fill" [style.width.%]="densityPct"></div></div>
+        <div class="dp-ticks"><span>Low</span><span>Medium</span><span>High</span></div>
+      </div>
+
+      <!-- 4 vehicle type cards -->
+      <div class="metric-grid">
+        <app-stat-card label="Cars"        [value]="stats()?.counts?.car ?? 0"        badge="passenger" accent="green"  [max]="30" />
+        <app-stat-card label="Trucks"      [value]="stats()?.counts?.truck ?? 0"      badge="heavy"     accent="violet" [max]="10" />
+        <app-stat-card label="Buses"       [value]="stats()?.counts?.bus ?? 0"        badge="transit"   accent="blue"   [max]="10" />
+        <app-stat-card label="Motorcycles" [value]="stats()?.counts?.motorcycle ?? 0" badge="2-wheel"   accent="amber"  [max]="10" />
+      </div>
+
+      <!-- Summary row -->
+      <div class="summary-row">
+        <div class="s-item">
+          <span class="s-val">{{ stats()?.total_vehicles ?? 0 }}</span>
+          <span class="s-label">Total</span>
+        </div>
+        <div class="s-div"></div>
+        <div class="s-item">
+          <span class="s-val">{{ stats()?.fps ?? '—' }}</span>
+          <span class="s-label">FPS</span>
+        </div>
+        <div class="s-div"></div>
+        <div class="s-item">
+          <span class="s-val">{{ stats()?.frame_width ?? '—' }}</span>
+          <span class="s-label">Width px</span>
+        </div>
+      </div>
+
+      <!-- Bar chart -->
+      <div class="chart-block">
+        <div class="cb-title">Vehicle Distribution</div>
+        <app-vehicle-chart [counts]="stats()?.counts ?? null" />
+      </div>
+
+    </aside>
+  </div>
+
+</div>

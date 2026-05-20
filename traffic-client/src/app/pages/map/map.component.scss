@@ -1,0 +1,247 @@
+$bg:      #f8fafc;
+$surface: #ffffff;
+$border:  #e2e8f0;
+$border2: #cbd5e1;
+$text:    #111827;
+$muted:   #6b7280;
+$subtle:  #9ca3af;
+$accent:  #3b82f6;
+
+/* ── Layout ── */
+.shell {
+  display: grid;
+  grid-template-columns: 288px minmax(0,1fr) 320px;
+  height: 100vh;
+  overflow: hidden;
+  background: $bg;
+  color: $text;
+  font-family: Inter, 'Segoe UI', Arial, sans-serif;
+}
+
+/* ── Sidebars ── */
+.sidebar, .inspector {
+  display: flex; flex-direction: column;
+  background: $surface;
+  border-right: 1px solid $border;
+  overflow: hidden; z-index: 10;
+  box-shadow: 2px 0 8px rgba(0,0,0,.04);
+}
+.inspector { border-right: none; border-left: 1px solid $border; box-shadow: -2px 0 8px rgba(0,0,0,.04); }
+
+/* ── Brand ── */
+.brand {
+  padding: 16px 18px 14px; border-bottom: 1px solid $border; flex-shrink: 0;
+  background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
+  .brand-row { display: flex; align-items: center; gap: 9px; margin-bottom: 5px; }
+  .brand-dot { width: 9px; height: 9px; border-radius: 50%; background: #fff; box-shadow: 0 0 8px rgba(255,255,255,.7); }
+  h1 { margin: 0; font-size: 17px; font-weight: 800; color: #fff; }
+  .sub { margin: 0; color: rgba(255,255,255,.75); font-size: 12px; line-height: 1.5; }
+  .sub-note { font-size: 10.5px; color: rgba(255,255,255,.5); }
+}
+
+/* ── Panels ── */
+.panel {
+  padding: 12px 16px; border-bottom: 1px solid $border; flex-shrink: 0;
+  h2 {
+    margin: 0 0 10px; font-size: 10.5px;
+    text-transform: uppercase; letter-spacing: .1em; color: $muted; font-weight: 700;
+    display: flex; align-items: center; gap: 7px;
+  }
+}
+.cam-section    { flex: 1; overflow-y: auto; min-height: 0; }
+.routes-section { flex: 1; overflow-y: auto; min-height: 0; }
+
+/* ── Overview metrics ── */
+.metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.metric {
+  padding: 10px 12px; background: $bg; border: 1px solid $border; border-radius: 9px;
+  span { display: block; color: $subtle; font-size: 10.5px; margin-bottom: 3px; font-weight: 500; }
+  strong { font-size: 22px; line-height: 1; font-weight: 700; color: $text; }
+}
+.countdown { font-size: 16px !important; color: $accent !important; font-variant-numeric: tabular-nums; }
+
+/* ── Camera cards ── */
+.camera {
+  padding: 10px 12px; border: 1px solid $border; border-radius: 9px;
+  background: $surface; margin-bottom: 7px; cursor: pointer;
+  transition: all .15s; position: relative;
+  &:last-child { margin-bottom: 0; }
+  &:hover  { background: #f8fafc; border-color: $border2; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+  &.active {
+    border-color: $accent; background: rgba(59,130,246,.04);
+    box-shadow: 0 0 0 3px rgba(59,130,246,.1);
+  }
+  .cam-loc { font-size: 10.5px; color: $subtle; margin-top: 2px; }
+  .cam-title-row { display: flex; align-items: center; gap: 6px; }
+  .cam-icon { font-size: 13px; }
+  .cam-stats-row {
+    display: flex; gap: 10px; margin-top: 7px;
+    .vtype-mini { font-size: 11px; color: $muted; font-weight: 500; }
+  }
+  .cam-bar-wrap { display: flex; align-items: center; gap: 8px; margin-top: 7px; }
+  .cam-bar { flex: 1; height: 4px; background: #f1f5f9; border-radius: 2px; overflow: hidden;
+    .cam-bar-fill { height: 100%; border-radius: 2px; transition: width .5s ease; }
+  }
+  .cam-count { font-size: 10.5px; color: $muted; white-space: nowrap; font-weight: 500; }
+}
+
+/* ── Density chip ── */
+.density-chip {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+  padding: 2px 8px; border-radius: 5px; border: 1.5px solid transparent; flex-shrink: 0;
+  &.lg { font-size: 11px; padding: 4px 11px; }
+}
+
+/* ── Data sources ── */
+.data-source {
+  display: flex; align-items: flex-start; gap: 10px; margin-bottom: 9px;
+  &:last-child { margin-bottom: 0; }
+  .source-icon {
+    width: 34px; height: 34px; border-radius: 8px; flex-shrink: 0;
+    background: rgba(59,130,246,.1); border: 1px solid rgba(59,130,246,.2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9.5px; font-weight: 700; color: $accent; letter-spacing: .02em;
+  }
+  .source-title { font-size: 12px; font-weight: 600; color: $text; margin-bottom: 2px; }
+  .source-desc  { font-size: 10.5px; color: $muted; line-height: 1.4; }
+}
+
+/* ── Map stage ── */
+.map-stage { position: relative; overflow: hidden; #map { width: 100%; height: 100%; } }
+
+/* ── Top bar overlay ── */
+.topbar {
+  position: absolute; top: 12px; left: 12px; right: 12px; z-index: 900;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  pointer-events: none;
+}
+.live-strip { display: flex; gap: 7px; pointer-events: auto; flex-wrap: wrap; }
+.pill {
+  min-height: 34px; display: inline-flex; align-items: center; gap: 7px;
+  padding: 5px 13px; border-radius: 999px;
+  background: rgba(255,255,255,.92); border: 1px solid rgba(0,0,0,.1);
+  backdrop-filter: blur(12px); font-size: 12.5px; color: $text;
+  box-shadow: 0 2px 10px rgba(0,0,0,.1);
+  .muted-text { color: $muted; }
+}
+.source-pill {
+  background: rgba(255,255,255,.92); border: 1px solid #fca5a5;
+  color: #dc2626; font-size: 11.5px; padding: 5px 12px; border-radius: 8px;
+  backdrop-filter: blur(12px); pointer-events: auto; box-shadow: 0 2px 8px rgba(239,68,68,.15);
+}
+.status-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #22c55e; box-shadow: 0 0 0 4px rgba(34,197,94,.2);
+  animation: blink 2s ease infinite;
+  &.offline { background: #ef4444; box-shadow: 0 0 0 4px rgba(239,68,68,.2); }
+}
+
+/* ── Map legend ── */
+.map-legend {
+  position: absolute; bottom: 20px; left: 12px; z-index: 800;
+  background: rgba(255,255,255,.94); border: 1px solid $border;
+  backdrop-filter: blur(14px); border-radius: 10px; padding: 11px 14px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.1);
+  .leg-title { font-size: 9.5px; text-transform: uppercase; letter-spacing: .1em; color: $muted; font-weight: 700; display: block; margin-bottom: 8px; }
+  .leg-item  { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; font-size: 12px; font-weight: 500; }
+  .leg-dot   { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+  .leg-label { font-size: 12px; font-weight: 500; }
+  .leg-note  { font-size: 9.5px; color: $subtle; margin-top: 7px; }
+}
+
+/* ── Loading overlay ── */
+.map-loading {
+  position: absolute; inset: 0; z-index: 1000;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px; color: $muted; font-size: 13px;
+  background: rgba(255,255,255,.7); backdrop-filter: blur(4px);
+  .ring { width: 28px; height: 28px; border: 2.5px solid #e2e8f0; border-top-color: $accent; border-radius: 50%; animation: spin .7s linear infinite; }
+}
+
+/* ── Camera detail (inspector) ── */
+.cam-detail {
+  .cd-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+  .cd-name { font-size: 14px; font-weight: 700; color: $text; }
+  .cd-loc  { font-size: 11px; color: $muted; margin-top: 2px; }
+  .cd-time { font-size: 10px; color: $subtle; margin-top: 2px; font-variant-numeric: tabular-nums; }
+}
+
+/* ── Density block ── */
+.density-block {
+  background: $bg; border: 1px solid $border; border-radius: 9px; padding: 10px 12px; margin-bottom: 10px;
+  .db-row   { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .db-label { font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: $muted; font-weight: 700; }
+  .db-bar   { height: 5px; background: #f1f5f9; border-radius: 3px; margin-bottom: 5px; overflow: hidden;
+    .db-fill { height: 100%; border-radius: 3px; transition: width .6s ease; }
+  }
+  .db-ticks { display: flex; justify-content: space-between; font-size: 9px; color: $subtle; }
+}
+
+/* ── Vehicle type cards ── */
+.vtype-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-bottom: 10px; }
+.vtype {
+  background: $bg; border: 1px solid $border; border-radius: 9px; padding: 10px 11px;
+  .vt-emoji { font-size: 17px; margin-bottom: 3px; }
+  .vt-val   { font-size: 24px; font-weight: 700; line-height: 1; color: $text; }
+  .vt-label { font-size: 9.5px; text-transform: uppercase; letter-spacing: .07em; color: $muted; margin-top: 2px; font-weight: 600; }
+  .vt-bar   { height: 3px; background: $border; border-radius: 2px; margin-top: 8px; overflow: hidden;
+    .vt-fill { height: 100%; border-radius: 2px; transition: width .5s ease; }
+  }
+  &.accent-green  { .vt-val { color: #16a34a; } .vt-fill { background: #22c55e; } }
+  &.accent-violet { .vt-val { color: #7c3aed; } .vt-fill { background: #a78bfa; } }
+  &.accent-blue   { .vt-val { color: #1d4ed8; } .vt-fill { background: #60a5fa; } }
+  &.accent-amber  { .vt-val { color: #d97706; } .vt-fill { background: #f59e0b; } }
+}
+
+/* ── Stats strip ── */
+.stats-row {
+  display: flex; background: $bg; border: 1px solid $border; border-radius: 9px; overflow: hidden;
+  .sr-item { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 9px 4px; gap: 2px; }
+  .sr-val  { font-size: 1.3rem; font-weight: 700; font-variant-numeric: tabular-nums; color: $text; }
+  .sr-lbl  { font-size: 9.5px; text-transform: uppercase; letter-spacing: .07em; color: $muted; font-weight: 600; }
+  .sr-div  { width: 1px; background: $border; margin: 7px 0; }
+}
+
+/* ── Alerts ── */
+.alerts { display: flex; flex-direction: column; gap: 7px; }
+.alert {
+  padding: 10px 12px; border: 1px solid $border; border-radius: 9px; background: $surface;
+  &.alert-red    { background: #fef2f2; border-color: #fca5a5; }
+  &.alert-yellow { background: #fffbeb; border-color: #fde68a; }
+}
+
+/* ── Routes ── */
+.route {
+  padding: 10px 12px; border: 1px solid $border; border-radius: 9px;
+  background: $surface; margin-bottom: 7px; cursor: pointer;
+  transition: all .13s;
+  &:last-child { margin-bottom: 0; }
+  &:hover       { background: $bg; border-color: $border2; }
+  &.route-blocked { background: #fef2f2; border-color: #fca5a5; }
+  &.route-slow    { background: #fffbeb; border-color: #fde68a; }
+  .bar { height: 4px; background: #f1f5f9; border-radius: 2px; margin: 7px 0; overflow: hidden;
+    i { display: block; height: 100%; border-radius: 2px; transition: width .5s ease; }
+  }
+  .route-footer  { display: flex; align-items: center; justify-content: space-between; }
+  .route-status  { font-size: 11px; font-weight: 700; }
+  .route-count   { font-size: 11px; color: $muted; font-weight: 500; }
+}
+
+/* ── Shared ── */
+.row   { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.title { font-size: 12.5px; font-weight: 600; color: $text; }
+.small { font-size: 10.5px; color: $muted; }
+.tag {
+  font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+  padding: 2px 7px; border-radius: 4px; flex-shrink: 0;
+  &.blue { background: rgba(59,130,246,.1); color: $accent; }
+}
+.no-data-small { font-size: 12px; color: $subtle; text-align: center; padding: 14px 0; }
+
+/* ── Leaflet overrides ── */
+:global(.leaflet-control-zoom a) { color: #374151 !important; }
+:global(.leaflet-control-attribution) { font-size: 9.5px !important; }
+
+/* ── Animations ── */
+@keyframes blink { 0%,100% { opacity:1; } 50% { opacity:.3; } }
+@keyframes spin  { to { transform: rotate(360deg); } }
