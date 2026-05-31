@@ -6,6 +6,7 @@ import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
 import * as L from 'leaflet';
 import { interval, Subscription, startWith, switchMap, catchError, of } from 'rxjs';
 import { TrafficApiService, CameraSnapshot } from '../../services/traffic-api.service';
+import { ChatbotComponent } from '../../components/chatbot/chatbot.component';
 
 const REFRESH_MS = 60 * 1000;
 
@@ -90,7 +91,7 @@ function sensorIcon(color: string, name: string, count: number, active: boolean)
 @Component({
   selector: 'app-map',
   standalone: true,
-  imports: [CommonModule, DatePipe, DecimalPipe],
+  imports: [CommonModule, DatePipe, DecimalPipe, ChatbotComponent],
   templateUrl: './map.component.html',
   styleUrls: ['./map.component.scss'],
 })

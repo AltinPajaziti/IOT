@@ -247,6 +247,9 @@ class CameraManager:
     def get_worker(self, cam_id: str) -> Optional[CameraWorker]:
         return self._workers.get(cam_id)
 
+    def get_all_workers(self) -> list[CameraWorker]:
+        return list(self._workers.values())
+
     def stop_all(self) -> None:
         for w in self._workers.values():
             w.stop()

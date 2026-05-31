@@ -1,0 +1,125 @@
+<!-- Floating toggle button -->
+<button
+  class="fab"
+  [class.fab-open]="open()"
+  (click)="toggle()"
+  aria-label="Open traffic assistant"
+  title="Traffic Assistant"
+>
+  @if (!open()) {
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    </svg>
+    @if (snapshots.length > 0) {
+      <span class="fab-badge">AI</span>
+    }
+  } @else {
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+    </svg>
+  }
+</button>
+
+<!-- Chat panel -->
+@if (open()) {
+  <div class="chat-panel" role="dialog" aria-label="Traffic Assistant">
+
+    <!-- Header -->
+    <div class="chat-header">
+      <div class="chat-header-left">
+        <div class="chat-avatar">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+        </div>
+        <div>
+          <div class="chat-title">TrafficBot</div>
+          <div class="chat-subtitle">
+            <span class="status-dot"></span>
+            @if (snapshots.length > 0) {
+              {{ snapshots.length }} routes · live data
+            } @else {
+              Waiting for data…
+            }
+          </div>
+        </div>
+      </div>
+      <div class="chat-header-actions">
+        <button class="icon-btn" (click)="clearChat()" title="Clear chat" aria-label="Clear chat">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.7"/>
+          </svg>
+        </button>
+        <button class="icon-btn" (click)="close()" aria-label="Close chat">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Messages -->
+    <div class="chat-messages">
+      @for (msg of messages(); track $index) {
+        <div class="msg-row" [class.msg-user]="msg.role === 'user'" [class.msg-bot]="msg.role === 'assistant'">
+          @if (msg.role === 'assistant') {
+            <div class="bot-avatar">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+            </div>
+          }
+          <div class="bubble" [class.bubble-user]="msg.role === 'user'" [class.bubble-bot]="msg.role === 'assistant'">
+            @if (msg.loading) {
+              <div class="typing">
+                <span></span><span></span><span></span>
+              </div>
+            } @else {
+              <span [innerHTML]="formatMessage(msg.content)"></span>
+            }
+          </div>
+        </div>
+      }
+      <div #messagesEnd></div>
+    </div>
+
+    <!-- Quick prompts (only when chat is fresh) -->
+    @if (!hasMessages()) {
+      <div class="quick-prompts">
+        @for (q of quickPrompts; track q) {
+          <button class="quick-btn" (click)="send(q)">{{ q }}</button>
+        }
+      </div>
+    }
+
+    <!-- Input -->
+    <div class="chat-input-row">
+      <textarea
+        class="chat-input"
+        [value]="userInput()"
+        (input)="setInput($any($event.target).value)"
+        (keydown)="onKeydown($event)"
+        placeholder="Ask about routes, traffic…"
+        rows="1"
+        [disabled]="thinking()"
+        aria-label="Type your message"
+      ></textarea>
+      <button
+        class="send-btn"
+        [disabled]="!userInput().trim() || thinking()"
+        (click)="send()"
+        aria-label="Send message"
+      >
+        @if (thinking()) {
+          <div class="send-spinner"></div>
+        } @else {
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+        }
+      </button>
+    </div>
+
+    <div class="chat-footer">Powered by GPT-4o mini · Live traffic data</div>
+  </div>
+}
