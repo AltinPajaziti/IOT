@@ -4,11 +4,11 @@ import {
 } from '@angular/core';
 import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
 import * as L from 'leaflet';
-import { interval, Subscription, startWith, switchMap, catchError, of } from 'rxjs';
+import { interval, Subscription, catchError, of, forkJoin } from 'rxjs';
 import { TrafficApiService, CameraSnapshot } from '../../services/traffic-api.service';
 import { ChatbotComponent } from '../../components/chatbot/chatbot.component';
 
-const REFRESH_MS = 60 * 1000;
+const DEFAULT_REFRESH_MS = 15 * 1000;
 
 const DENSITY_COLOR: Record<string, string> = {
   Low:    '#22c55e',
@@ -103,8 +103,14 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   loading    = signal(true);
   error      = signal<string | null>(null);
   lastUpdate = signal<Date | null>(null);
-  countdown  = signal(REFRESH_MS / 1000);
+  countdown  = signal(DEFAULT_REFRESH_MS / 1000);
   alerts     = signal<Alert[]>([]);
+  refreshMs  = signal(DEFAULT_REFRESH_MS);
+  simulating = signal(false);
+  simulateMsg = signal<string | null>(null);
+
+  highAlerts = computed(() => this.alerts().filter(a => a.level === 'high'));
+  showAlarm  = computed(() => this.highAlerts().length > 0);
 
   totalVehicles   = computed(() => this.snapshots().reduce((s, x) => s + x.totalVehicles, 0));
   avgDensity      = computed(() => {
@@ -120,45 +126,84 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   private map!: L.Map;
   private markers  = new Map<string, L.Marker>();
   private polylines = new Map<string, L.Polyline>();
-  private sub?: Subscription;
   private countdownSub?: Subscription;
+  private pollTimer?: ReturnType<typeof setInterval>;
 
   ngOnInit() {
-    this.sub = interval(REFRESH_MS).pipe(
-      startWith(0),
-      switchMap(() => this.api.getLatest().pipe(catchError(() => of(null)))),
-    ).subscribe(data => {
+    forkJoin({
+      settings: this.api.getSettings().pipe(catchError(() => of({ refreshSeconds: 15 }))),
+      data: this.api.getLatest().pipe(catchError(() => of(null as CameraSnapshot[] | null))),
+    }).subscribe(({ settings, data }) => {
+      const ms = Math.max(5, settings.refreshSeconds) * 1000;
+      this.refreshMs.set(ms);
+      this.countdown.set(ms / 1000);
       this.loading.set(false);
+      if (data) this.applySnapshots(data);
+      else this.error.set('Cannot reach Traffic API — is the .NET service running?');
+      this.startPolling();
+    });
+
+    this.countdownSub = interval(1000).subscribe(() => {
+      const max = this.refreshMs() / 1000;
+      this.countdown.update(v => v > 0 ? v - 1 : max);
+    });
+  }
+
+  private startPolling() {
+    this.pollTimer && clearInterval(this.pollTimer);
+    const ms = this.refreshMs();
+    this.pollTimer = setInterval(() => this.fetchLatest(), ms);
+  }
+
+  private fetchLatest() {
+    this.api.getLatest().pipe(catchError(() => of(null))).subscribe(data => {
       if (data) {
-        this.snapshots.set(data);
-        this.lastUpdate.set(new Date());
-        this.error.set(null);
-        this.updateMarkers(data);
-        this.updatePolylines(data);
-        this.buildAlerts(data);
-        if (!this.selected() && data.length > 0) {
-          this.selected.set(data[0]);
-        } else {
-          const cur = this.selected();
-          if (cur) {
-            const fresh = data.find(d => d.cameraId === cur.cameraId);
-            if (fresh) this.selected.set(fresh);
-          }
-        }
-        this.countdown.set(REFRESH_MS / 1000);
+        this.applySnapshots(data);
+        this.countdown.set(this.refreshMs() / 1000);
       } else {
         this.error.set('Cannot reach Traffic API — is the .NET service running?');
       }
     });
-    this.countdownSub = interval(1000).subscribe(() =>
-      this.countdown.update(v => v > 0 ? v - 1 : REFRESH_MS / 1000));
+  }
+
+  private applySnapshots(data: CameraSnapshot[]) {
+    this.snapshots.set(data);
+    this.lastUpdate.set(new Date());
+    this.error.set(null);
+    this.updateMarkers(data);
+    this.updatePolylines(data);
+    this.buildAlerts(data);
+    if (!this.selected() && data.length > 0) {
+      this.selected.set(data[0]);
+    } else {
+      const cur = this.selected();
+      if (cur) {
+        const fresh = data.find(d => d.cameraId === cur.cameraId);
+        if (fresh) this.selected.set(fresh);
+      }
+    }
+  }
+
+  runSimulator() {
+    if (this.simulating()) return;
+    this.simulating.set(true);
+    this.simulateMsg.set(null);
+    this.api.simulate(200).pipe(catchError(() => of(null))).subscribe(res => {
+      this.simulating.set(false);
+      if (res) {
+        this.simulateMsg.set(res.message);
+        this.fetchLatest();
+      } else {
+        this.simulateMsg.set('Simulator failed — is the .NET API running?');
+      }
+    });
   }
 
   ngAfterViewInit() { this.initMap(); }
 
   ngOnDestroy() {
-    this.sub?.unsubscribe();
     this.countdownSub?.unsubscribe();
+    if (this.pollTimer) clearInterval(this.pollTimer);
     this.map?.remove();
   }
 

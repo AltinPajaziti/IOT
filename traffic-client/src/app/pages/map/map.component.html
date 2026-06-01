@@ -81,6 +81,21 @@
 
     <!-- Data sources -->
     <section class="panel">
+      <h2>Simulator</h2>
+      <p class="sim-desc">Insert ~200 simulated cars into SQL Server to trigger congestion alerts on the next refresh.</p>
+      <button
+        class="sim-btn"
+        [disabled]="simulating()"
+        (click)="runSimulator()"
+      >
+        {{ simulating() ? 'Inserting…' : '🚨 Simulate 200 cars' }}
+      </button>
+      @if (simulateMsg()) {
+        <div class="sim-msg">{{ simulateMsg() }}</div>
+      }
+    </section>
+
+    <section class="panel">
       <h2>Data Sources</h2>
       <div class="data-source">
         <div class="source-icon">CAM</div>
@@ -110,6 +125,19 @@
   <!-- ══════════════ MAP CENTER ══════════════ -->
   <section class="map-stage">
     <div id="map"></div>
+
+    <!-- congestion alarm banner -->
+    @if (showAlarm()) {
+      <div class="alarm-banner">
+        <span class="alarm-icon">🚨</span>
+        <div class="alarm-body">
+          <strong>TRAFFIC ALERT — High congestion detected</strong>
+          @for (a of highAlerts(); track a.id) {
+            <span class="alarm-detail">{{ a.camera }}: {{ a.message }}</span>
+          }
+        </div>
+      </div>
+    }
 
     <!-- floating top bar -->
     <div class="topbar">

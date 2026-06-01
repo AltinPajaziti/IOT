@@ -2,6 +2,15 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
+export interface AppSettings {
+  refreshSeconds: number;
+}
+
+export interface SimulateResponse {
+  message: string;
+  snapshots: CameraSnapshot[];
+}
+
 export interface CameraSnapshot {
   id: number;
   cameraId: string;
@@ -54,5 +63,16 @@ export class TrafficApiService {
     return this.http.get<CameraSnapshot[]>(
       `${this.base}/snapshots/history/${cameraId}?hours=${hours}`
     );
+  }
+
+  getSettings(): Observable<AppSettings> {
+    return this.http.get<AppSettings>(`${this.base}/settings`);
+  }
+
+  simulate(cars = 200, cameraId?: string): Observable<SimulateResponse> {
+    return this.http.post<SimulateResponse>(`${this.base}/snapshots/simulate`, {
+      cars,
+      cameraId: cameraId ?? null,
+    });
   }
 }

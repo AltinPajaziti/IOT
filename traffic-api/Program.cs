@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using TrafficApi.Controllers;
 using TrafficApi.Data;
 using TrafficApi.Services;
 
@@ -30,11 +31,30 @@ builder.Services.AddCors(opt =>
 
 var app = builder.Build();
 
-// Auto-migrate on startup
+// Auto-migrate on startup + seed default settings
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<TrafficDbContext>();
     db.Database.EnsureCreated();
+
+    // Ensure AppSettings table exists on databases created before this feature
+    await db.Database.ExecuteSqlRawAsync("""
+        IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'AppSettings')
+        CREATE TABLE AppSettings (
+            [Key]   NVARCHAR(100)  NOT NULL PRIMARY KEY,
+            [Value] NVARCHAR(500)  NOT NULL
+        );
+        """);
+
+    if (!await db.AppSettings.AnyAsync(s => s.Key == SettingsController.RefreshSecondsKey))
+    {
+        db.AppSettings.Add(new TrafficApi.Models.AppSetting
+        {
+            Key   = SettingsController.RefreshSecondsKey,
+            Value = SettingsController.DefaultRefreshSeconds.ToString(),
+        });
+        await db.SaveChangesAsync();
+    }
 }
 
 app.UseCors();

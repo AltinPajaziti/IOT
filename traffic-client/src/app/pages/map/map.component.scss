@@ -106,8 +106,44 @@ $accent:  #3b82f6;
   .source-desc  { font-size: 10.5px; color: $muted; line-height: 1.4; }
 }
 
+/* ── Simulator ── */
+.sim-desc { margin: 0 0 10px; font-size: 11px; color: $muted; line-height: 1.45; }
+.sim-btn {
+  width: 100%; padding: 10px 12px; border: none; border-radius: 8px;
+  background: linear-gradient(135deg, #dc2626, #ef4444);
+  color: #fff; font-size: 12.5px; font-weight: 700; cursor: pointer;
+  transition: opacity .15s, transform .1s;
+  &:hover:not(:disabled) { opacity: .92; transform: translateY(-1px); }
+  &:disabled { opacity: .6; cursor: wait; }
+}
+.sim-msg {
+  margin-top: 8px; padding: 8px 10px; border-radius: 7px;
+  background: rgba(34,197,94,.1); border: 1px solid rgba(34,197,94,.25);
+  font-size: 11px; color: #15803d; line-height: 1.4;
+}
+
 /* ── Map stage ── */
-.map-stage { position: relative; overflow: hidden; #map { width: 100%; height: 100%; } }
+.map-stage {
+  position: relative; overflow: hidden;
+  #map { width: 100%; height: 100%; }
+  &:has(.alarm-banner) .topbar { top: 72px; }
+}
+
+/* ── Congestion alarm banner ── */
+.alarm-banner {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 950;
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 12px 16px;
+  background: linear-gradient(90deg, rgba(220,38,38,.95), rgba(239,68,68,.92));
+  color: #fff; box-shadow: 0 4px 20px rgba(220,38,38,.35);
+  animation: alarm-pulse 2s ease-in-out infinite;
+  .alarm-icon { font-size: 22px; line-height: 1; flex-shrink: 0; }
+  .alarm-body {
+    display: flex; flex-direction: column; gap: 3px;
+    strong { font-size: 13px; letter-spacing: .02em; }
+    .alarm-detail { font-size: 11.5px; opacity: .92; }
+  }
+}
 
 /* ── Top bar overlay ── */
 .topbar {
@@ -245,3 +281,7 @@ $accent:  #3b82f6;
 /* ── Animations ── */
 @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:.3; } }
 @keyframes spin  { to { transform: rotate(360deg); } }
+@keyframes alarm-pulse {
+  0%, 100% { box-shadow: 0 4px 20px rgba(220,38,38,.35); }
+  50%      { box-shadow: 0 4px 28px rgba(220,38,38,.55); }
+}
