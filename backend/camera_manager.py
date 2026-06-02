@@ -171,7 +171,15 @@ class CameraWorker:
                         frame_height=frame.shape[0],
                     )
                     self._latest_stats = stats
-                    self._history.append(asdict(stats))
+                    hist = asdict(stats)
+                    hist["location"] = self.config.location
+                    hist["city"] = self.config.city
+                    self._history.append(hist)
+                    try:
+                        from kafka_producer import build_event_from_detection, publish_event
+                        publish_event(build_event_from_detection(hist, source="yolo"))
+                    except Exception:
+                        pass
 
         cap.release()
         self.running = False

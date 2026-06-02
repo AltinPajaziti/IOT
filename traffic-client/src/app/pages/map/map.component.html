@@ -9,7 +9,7 @@
         <h1>TrafficWatch</h1>
       </div>
       <p class="sub">Prishtina · Live traffic intelligence</p>
-      <p class="sub sub-note">YOLO detection · SQL Server · Leaflet</p>
+      <p class="sub sub-note">IoT: Kafka · Spark · Cassandra · YOLO · AI</p>
     </div>
 
     <!-- Overview metrics -->
@@ -79,10 +79,49 @@
       }
     </section>
 
-    <!-- Data sources -->
+    <!-- IoT Pipeline (Professor Project 2) -->
+    <section class="panel">
+      <h2>IoT Pipeline <span class="tag blue">Live</span></h2>
+      <div class="pipeline-flow">
+        <span>Sensors</span><span class="pf-arrow">→</span>
+        <span>Kafka</span><span class="pf-arrow">→</span>
+        <span>Spark</span><span class="pf-arrow">→</span>
+        <span>Cassandra</span><span class="pf-arrow">→</span>
+        <span>UI</span>
+      </div>
+      @if (pipeline(); as p) {
+        <div class="pipeline-status">
+          <div class="ps-row">
+            <span class="ps-dot" [class.ok]="p.kafka.connected" [class.err]="!p.kafka.connected"></span>
+            <span>Kafka</span>
+            <span class="ps-val">{{ p.kafka.connected ? p.kafka.events_sent + ' events' : 'offline' }}</span>
+          </div>
+          <div class="ps-row">
+            <span class="ps-dot" [class.ok]="p.stream_processor.running"></span>
+            <span>Processor</span>
+            <span class="ps-val">{{ p.stream_processor.processed }} processed</span>
+          </div>
+          <div class="ps-row">
+            <span class="ps-dot" [class.ok]="p.cassandra.connected" [class.err]="!p.cassandra.connected"></span>
+            <span>Cassandra</span>
+            <span class="ps-val">{{ p.cassandra.connected ? p.cassandra.row_count + ' rows' : 'offline' }}</span>
+          </div>
+          <div class="ps-row">
+            <span class="ps-dot" [class.ok]="p.simulator.running"></span>
+            <span>Simulator</span>
+            <span class="ps-val">tick #{{ p.simulator.ticks }}</span>
+          </div>
+        </div>
+        <div class="data-source-tag">Reading from: <strong>{{ dataSource() === 'cassandra' ? 'Cassandra (IoT)' : dataSource() === 'sqlserver' ? 'SQL Server' : '—' }}</strong></div>
+      } @else {
+        <div class="no-data-small">Pipeline status unavailable</div>
+      }
+    </section>
+
+    <!-- Simulator -->
     <section class="panel">
       <h2>Simulator</h2>
-      <p class="sim-desc">Insert ~200 simulated cars into SQL Server to trigger congestion alerts on the next refresh.</p>
+      <p class="sim-desc">Publish ~200 cars to Kafka + SQL Server to demo congestion alerts end-to-end.</p>
       <button
         class="sim-btn"
         [disabled]="simulating()"
@@ -98,24 +137,31 @@
     <section class="panel">
       <h2>Data Sources</h2>
       <div class="data-source">
+        <div class="source-icon">IOT</div>
+        <div>
+          <div class="source-title">Apache Kafka</div>
+          <div class="source-desc">Sensor events streamed to topic traffic-sensor-events.</div>
+        </div>
+      </div>
+      <div class="data-source">
+        <div class="source-icon">SPK</div>
+        <div>
+          <div class="source-title">Spark Streaming</div>
+          <div class="source-desc">Real-time window aggregations (1-min tumbling windows).</div>
+        </div>
+      </div>
+      <div class="data-source">
+        <div class="source-icon">CAS</div>
+        <div>
+          <div class="source-title">Apache Cassandra</div>
+          <div class="source-desc">Processed snapshots + aggregates in traffic_iot keyspace.</div>
+        </div>
+      </div>
+      <div class="data-source">
         <div class="source-icon">CAM</div>
         <div>
           <div class="source-title">YOLO Detection</div>
           <div class="source-desc">Real-time vehicle counting via YOLOv8 on live streams.</div>
-        </div>
-      </div>
-      <div class="data-source">
-        <div class="source-icon">API</div>
-        <div>
-          <div class="source-title">.NET Traffic API</div>
-          <div class="source-desc">Polls backend, stores snapshots to SQL Server LocalDB.</div>
-        </div>
-      </div>
-      <div class="data-source">
-        <div class="source-icon">MAP</div>
-        <div>
-          <div class="source-title">CARTO Dark Tiles</div>
-          <div class="source-desc">Dark basemap with live camera markers.</div>
         </div>
       </div>
     </section>

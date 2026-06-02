@@ -8,3 +8,6 @@ aiofiles==24.1.0
 httpx==0.27.2
 Pillow>=12.0.0
 openai>=1.30.0
+kafka-python==2.0.2
+# cassandra-driver optional on Windows — cqlsh/docker fallback used if missing
+cassandra-driver==3.29.2; platform_system != "Windows"

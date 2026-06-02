@@ -140,6 +140,59 @@ IOT/
 
 ## Running the Platform
 
+### IoT Infrastructure First: Kafka + Cassandra
+
+Docker Desktop must be running. In its own PowerShell terminal, start Kafka,
+Cassandra, Kafka UI, and initialize the `traffic_iot` Cassandra schema:
+
+```powershell
+.\scripts\start-iot-stack.ps1
+```
+
+The Python backend starts a sensor simulator and a development stream processor
+automatically. Sensor events flow through:
+
+```text
+Sensors / Simulator -> Kafka -> Stream Processor -> Cassandra -> Map Client
+```
+
+> **Kafka UI:** http://localhost:8080  
+> **Kafka topic:** `traffic-sensor-events`  
+> **Cassandra keyspace:** `traffic_iot`
+
+Use these five terminals for the complete IoT-enabled platform:
+
+```powershell
+# Terminal 1 - Kafka, Cassandra, and Kafka UI
+.\scripts\start-iot-stack.ps1
+
+# Terminal 2 - FastAPI, simulator, and development stream processor
+cd backend
+.venv\Scripts\uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+# Terminal 3 - SQL fallback API
+cd traffic-api
+dotnet run --urls http://localhost:5050
+
+# Terminal 4 - Live dashboard
+cd frontend
+npm start
+
+# Terminal 5 - Map client
+cd traffic-client
+npm start -- --port 4201
+```
+
+For the professor presentation, Apache Spark replaces the Python development
+stream processor. Install Java 11+ and Spark 3.5+, set
+`STREAM_PROCESSOR_FALLBACK=false` before starting FastAPI, then run:
+
+```powershell
+cd spark-jobs
+pip install -r requirements.txt
+spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.3,com.datastax.spark:spark-cassandra-connector_2.12:3.5.0 traffic_streaming.py
+```
+
 ### 1 · Python Backend (port 8000)
 
 ```powershell
@@ -253,6 +306,7 @@ Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd traffic-client
 
 ```powershell
 Get-Process python*, dotnet, node -ErrorAction SilentlyContinue | Stop-Process -Force
+docker compose down
 ```
 
 ---
@@ -291,6 +345,15 @@ Get-Process python*, dotnet, node -ErrorAction SilentlyContinue | Stop-Process -
 | GET | `/api/snapshots/latest` | Latest snapshot per camera |
 | GET | `/api/snapshots/history/{cameraId}?hours=3` | Time-series history for one camera |
 | GET | `/api/snapshots/summary` | Aggregated vehicle totals across all cameras |
+
+### IoT Pipeline API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/pipeline/status` | Kafka, Cassandra, simulator, and processor health |
+| GET | `/api/pipeline/snapshots/latest` | Latest processed Cassandra snapshot per camera |
+| GET | `/api/pipeline/aggregates` | Windowed traffic aggregates |
+| POST | `/api/pipeline/simulate` | Publish demo congestion events to Kafka |
 
 ---
 

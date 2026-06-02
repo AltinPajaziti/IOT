@@ -4,8 +4,9 @@ import {
 } from '@angular/core';
 import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
 import * as L from 'leaflet';
-import { interval, Subscription, catchError, of, forkJoin } from 'rxjs';
+import { interval, Subscription, catchError, of, forkJoin, switchMap } from 'rxjs';
 import { TrafficApiService, CameraSnapshot } from '../../services/traffic-api.service';
+import { PipelineService, PipelineStatus } from '../../services/pipeline.service';
 import { ChatbotComponent } from '../../components/chatbot/chatbot.component';
 
 const DEFAULT_REFRESH_MS = 15 * 1000;
@@ -97,8 +98,11 @@ function sensorIcon(color: string, name: string, count: number, active: boolean)
 })
 export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   private api = inject(TrafficApiService);
+  private pipelineSvc = inject(PipelineService);
 
   snapshots  = signal<CameraSnapshot[]>([]);
+  pipeline   = signal<PipelineStatus | null>(null);
+  dataSource = signal<'cassandra' | 'sqlserver' | 'none'>('none');
   selected   = signal<CameraSnapshot | null>(null);
   loading    = signal(true);
   error      = signal<string | null>(null);
@@ -128,19 +132,32 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   private polylines = new Map<string, L.Polyline>();
   private countdownSub?: Subscription;
   private pollTimer?: ReturnType<typeof setInterval>;
+  private pipelineTimer?: ReturnType<typeof setInterval>;
+
+  private startPipelinePolling() {
+    this.pipelineTimer && clearInterval(this.pipelineTimer);
+    this.pipelineTimer = setInterval(() => {
+      this.pipelineSvc.getStatus().pipe(catchError(() => of(null))).subscribe(s => {
+        if (s) this.pipeline.set(s);
+      });
+    }, 10000);
+  }
 
   ngOnInit() {
     forkJoin({
       settings: this.api.getSettings().pipe(catchError(() => of({ refreshSeconds: 15 }))),
       data: this.api.getLatest().pipe(catchError(() => of(null as CameraSnapshot[] | null))),
-    }).subscribe(({ settings, data }) => {
+      pipeline: this.pipelineSvc.getStatus().pipe(catchError(() => of(null))),
+    }).subscribe(({ settings, data, pipeline }) => {
       const ms = Math.max(5, settings.refreshSeconds) * 1000;
       this.refreshMs.set(ms);
       this.countdown.set(ms / 1000);
       this.loading.set(false);
+      if (pipeline) this.pipeline.set(pipeline);
       if (data) this.applySnapshots(data);
-      else this.error.set('Cannot reach Traffic API — is the .NET service running?');
+      else this.error.set('Cannot reach Traffic API — start docker compose + backend + traffic-api');
       this.startPolling();
+      this.startPipelinePolling();
     });
 
     this.countdownSub = interval(1000).subscribe(() => {
@@ -156,12 +173,31 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private fetchLatest() {
-    this.api.getLatest().pipe(catchError(() => of(null))).subscribe(data => {
+    this.pipelineSvc.getLatestFromCassandra().pipe(
+      catchError(() => of([] as CameraSnapshot[])),
+      switchMap(cassandra => {
+        if (cassandra.length > 0) {
+          this.dataSource.set('cassandra');
+          return of(cassandra);
+        }
+        return this.api.getLatest().pipe(
+          catchError(() => of(null as CameraSnapshot[] | null)),
+          switchMap(sql => {
+            if (sql && sql.length > 0) {
+              this.dataSource.set('sqlserver');
+              return of(sql);
+            }
+            this.dataSource.set('none');
+            return of(null);
+          }),
+        );
+      }),
+    ).subscribe(data => {
       if (data) {
         this.applySnapshots(data);
         this.countdown.set(this.refreshMs() / 1000);
       } else {
-        this.error.set('Cannot reach Traffic API — is the .NET service running?');
+        this.error.set('No data — start IoT stack: docker compose up -d');
       }
     });
   }
@@ -188,13 +224,19 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.simulating()) return;
     this.simulating.set(true);
     this.simulateMsg.set(null);
-    this.api.simulate(200).pipe(catchError(() => of(null))).subscribe(res => {
+    forkJoin({
+      sql: this.api.simulate(200).pipe(catchError(() => of(null))),
+      kafka: this.api.simulatePipeline(200).pipe(catchError(() => of(null))),
+    }).subscribe(({ sql, kafka }) => {
       this.simulating.set(false);
-      if (res) {
-        this.simulateMsg.set(res.message);
-        this.fetchLatest();
+      const parts: string[] = [];
+      if (sql) parts.push('SQL: ' + sql.message);
+      if (kafka) parts.push('Kafka: ' + kafka.message);
+      if (parts.length) {
+        this.simulateMsg.set(parts.join(' · '));
+        setTimeout(() => this.fetchLatest(), 2000);
       } else {
-        this.simulateMsg.set('Simulator failed — is the .NET API running?');
+        this.simulateMsg.set('Simulator failed — start docker compose + backend + traffic-api');
       }
     });
   }
@@ -204,6 +246,7 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   ngOnDestroy() {
     this.countdownSub?.unsubscribe();
     if (this.pollTimer) clearInterval(this.pollTimer);
+    if (this.pipelineTimer) clearInterval(this.pipelineTimer);
     this.map?.remove();
   }
 

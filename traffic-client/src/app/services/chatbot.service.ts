@@ -9,7 +9,7 @@ export interface ChatMessage {
   content: string;
 }
 
-const CHAT_API_URL = 'http://localhost:8001/api/chat';
+const CHAT_API_URL = 'http://localhost:8000/api/chat';
 const REQUEST_TIMEOUT_MS = 20_000;
 
 @Injectable({ providedIn: 'root' })

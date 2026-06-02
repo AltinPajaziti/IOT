@@ -1,6 +1,8 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, of } from 'rxjs';
+import { catchError, switchMap } from 'rxjs/operators';
+import { PipelineService } from './pipeline.service';
 
 export interface AppSettings {
   refreshSeconds: number;
@@ -49,10 +51,20 @@ export interface CameraItem {
 @Injectable({ providedIn: 'root' })
 export class TrafficApiService {
   private readonly base = 'http://localhost:5050/api';
+  private readonly pipelineBase = 'http://localhost:8000/api/pipeline';
   private http = inject(HttpClient);
+  private pipeline = inject(PipelineService);
 
+  /** Prefer Cassandra (IoT pipeline); fall back to SQL Server via .NET API. */
   getLatest(): Observable<CameraSnapshot[]> {
-    return this.http.get<CameraSnapshot[]>(`${this.base}/snapshots/latest`);
+    return this.pipeline.getLatestFromCassandra().pipe(
+      switchMap(cassandraRows => {
+        if (cassandraRows.length > 0) return of(cassandraRows);
+        return this.http.get<CameraSnapshot[]>(`${this.base}/snapshots/latest`).pipe(
+          catchError(() => of([] as CameraSnapshot[])),
+        );
+      }),
+    );
   }
 
   getSummary(): Observable<SummaryResponse> {
@@ -74,5 +86,9 @@ export class TrafficApiService {
       cars,
       cameraId: cameraId ?? null,
     });
+  }
+
+  simulatePipeline(cars = 200): Observable<{ message: string } | null> {
+    return this.pipeline.simulateToKafka(cars);
   }
 }
