@@ -16,7 +16,7 @@ from stream_processor import start as start_processor, stop as stop_processor
 from iot_config import SIMULATOR_ENABLED
 import os
 
-STREAM_PROCESSOR_FALLBACK = os.getenv("STREAM_PROCESSOR_FALLBACK", "true").lower() in ("1", "true", "yes")
+STREAM_PROCESSOR_FALLBACK = os.getenv("STREAM_PROCESSOR_FALLBACK", "false").lower() in ("1", "true", "yes")
 
 
 @asynccontextmanager

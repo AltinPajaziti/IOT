@@ -1,33 +1,9 @@
-"""
-IoU-based multi-object tracker with velocity prediction.
-No extra dependencies — pure Python + NumPy (already required by YOLO).
-
-How it works
-────────────
-Each YOLO inference cycle produces a raw list of detected boxes.
-The tracker:
-  1. Predicts each track's new position using its smoothed velocity vector.
-  2. Matches new detections to predicted track positions by IoU.
-  3. Updates matched tracks with the fresh box and resets their miss counter.
-  4. Creates new tracks for detections that did not match anything.
-  5. Removes tracks missing for more than MAX_MISSED consecutive cycles.
-  6. Returns ALL live tracks — including coasting ones — so boxes remain
-     visible between detections AND follow the vehicle's motion.
-
-Velocity model
-──────────────
-Each track maintains (vx, vy) smoothed with an exponential moving average.
-During coasting, `predict()` shifts the box by (vx, vy) each cycle so the
-box moves with the car even when YOLO temporarily misses the detection.
-Velocity decays by COAST_DECAY per missed frame to avoid runaway drift.
-"""
+"""Time-aware IoU tracker with velocity and speed support."""
 
 from __future__ import annotations
 
 import numpy as np
 
-
-# ── IoU helper ────────────────────────────────────────────────────────────────
 
 def _iou(a: tuple[int, int, int, int], b: tuple[int, int, int, int]) -> float:
     ax1, ay1, ax2, ay2 = a
@@ -44,108 +20,84 @@ def _iou(a: tuple[int, int, int, int], b: tuple[int, int, int, int]) -> float:
     return inter / (area_a + area_b - inter)
 
 
-# ── Track ─────────────────────────────────────────────────────────────────────
+def _anchor(box: dict) -> tuple[float, float]:
+    """Bottom-center point is more stable for road speed than box center."""
+    return ((box["x1"] + box["x2"]) / 2.0, float(box["y2"]))
+
+
+def _shifted_box(box: dict, dx: float, dy: float) -> dict:
+    b = dict(box)
+    b["x1"] = int(round(b["x1"] + dx))
+    b["x2"] = int(round(b["x2"] + dx))
+    b["y1"] = int(round(b["y1"] + dy))
+    b["y2"] = int(round(b["y2"] + dy))
+    return b
+
 
 class _Track:
-    """Single tracked vehicle with a stable integer ID and velocity model."""
+    __slots__ = (
+        "track_id",
+        "box",
+        "missed",
+        "age",
+        "coasting",
+        "_vx_ps",
+        "_vy_ps",
+        "_prev_ax",
+        "_prev_ay",
+    )
 
-    __slots__ = ("track_id", "box", "missed", "age", "coasting",
-                 "_vx", "_vy", "_prev_cx", "_prev_cy")
-
-    # Velocity smoothing factor (0 = no update, 1 = instant update)
-    _VEL_ALPHA: float = 0.45
-    # Velocity decay per coasting frame (prevents runaway drift)
-    _COAST_DECAY: float = 0.80
+    _VEL_ALPHA = 0.55
+    _COAST_DECAY = 0.88
 
     def __init__(self, track_id: int, box: dict) -> None:
-        self.track_id: int = track_id
-        self.box: dict = box
-        self.missed: int = 0
-        self.age: int = 1
-        self.coasting: bool = False
-        self._vx: float = 0.0
-        self._vy: float = 0.0
-        self._prev_cx: float = (box["x1"] + box["x2"]) / 2.0
-        self._prev_cy: float = (box["y1"] + box["y2"]) / 2.0
+        self.track_id = track_id
+        self.box = box
+        self.missed = 0
+        self.age = 1
+        self.coasting = False
+        self._vx_ps = 0.0
+        self._vy_ps = 0.0
+        self._prev_ax, self._prev_ay = _anchor(box)
 
-    def update(self, box: dict) -> None:
-        cx = (box["x1"] + box["x2"]) / 2.0
-        cy = (box["y1"] + box["y2"]) / 2.0
-        # Update velocity via EMA
-        new_vx = cx - self._prev_cx
-        new_vy = cy - self._prev_cy
-        a = self._VEL_ALPHA
-        self._vx = a * new_vx + (1.0 - a) * self._vx
-        self._vy = a * new_vy + (1.0 - a) * self._vy
-        self._prev_cx = cx
-        self._prev_cy = cy
+    def predicted_box(self, dt: float) -> dict:
+        return _shifted_box(self.box, self._vx_ps * dt, self._vy_ps * dt)
+
+    def update(self, box: dict, dt: float) -> None:
+        ax, ay = _anchor(box)
+        dt = max(dt, 0.001)
+        new_vx = (ax - self._prev_ax) / dt
+        new_vy = (ay - self._prev_ay) / dt
+        alpha = self._VEL_ALPHA if self.age > 1 else 1.0
+        self._vx_ps = alpha * new_vx + (1.0 - alpha) * self._vx_ps
+        self._vy_ps = alpha * new_vy + (1.0 - alpha) * self._vy_ps
+        self._prev_ax = ax
+        self._prev_ay = ay
         self.box = box
         self.missed = 0
         self.age += 1
         self.coasting = False
 
-    def predict(self) -> None:
-        """Shift the box by the smoothed velocity and decay speed."""
-        dx = round(self._vx)
-        dy = round(self._vy)
-        b = self.box
-        self.box = {
-            "x1": b["x1"] + dx,
-            "y1": b["y1"] + dy,
-            "x2": b["x2"] + dx,
-            "y2": b["y2"] + dy,
-            "cls_id": b["cls_id"],
-            "label":  b["label"],
-            "conf":   b["conf"],
-        }
-        # Decay velocity so the box doesn't drift indefinitely
-        self._vx *= self._COAST_DECAY
-        self._vy *= self._COAST_DECAY
-        self._prev_cx += dx
-        self._prev_cy += dy
+    def coast(self, dt: float) -> None:
+        self.box = self.predicted_box(dt)
+        self._prev_ax += self._vx_ps * dt
+        self._prev_ay += self._vy_ps * dt
+        self._vx_ps *= self._COAST_DECAY
+        self._vy_ps *= self._COAST_DECAY
         self.missed += 1
         self.coasting = True
 
 
-# ── Tracker ───────────────────────────────────────────────────────────────────
-
 class VehicleTracker:
-    """
-    Per-camera IoU-based tracker with velocity-predicted coasting.
-    Each CameraWorker creates its own instance so state is never shared.
-
-    Usage::
-
-        tracker = VehicleTracker()
-        tracked_boxes = tracker.update(raw_yolo_boxes)  # call once per YOLO cycle
-
-    Each dict in `tracked_boxes` is the original YOLO box dict extended with:
-      • "track_id"  — stable integer, 1-based
-      • "coasting"  — True when the box position is velocity-predicted
-    """
-
-    # Frames a track survives without a matching detection.
-    # Low value = boxes vanish quickly when YOLO misses; keep at 3-5.
-    MAX_MISSED: int = 4
-
-    # Minimum IoU (against predicted position) to accept a match.
-    MIN_IOU: float = 0.15
+    MAX_MISSED = 2
+    MIN_IOU = 0.10
 
     def __init__(self) -> None:
         self._tracks: list[_Track] = []
-        self._next_id: int = 1
+        self._next_id = 1
 
-    # ── public API ────────────────────────────────────────────────────────────
-
-    def update(self, detections: list[dict]) -> list[dict]:
-        """
-        Feed raw YOLO detections; get back all live tracked boxes.
-        Coasting boxes have already been shifted by the velocity model,
-        so they follow the vehicle's last known trajectory.
-        """
-        # Predict new positions for all existing tracks
-        for t in self._tracks:
-            t.predict()
+    def update(self, detections: list[dict], dt: float = 0.12) -> list[dict]:
+        dt = max(dt, 0.001)
 
         matched_track_ids: set[int] = set()
         matched_det_indices: set[int] = set()
@@ -153,45 +105,46 @@ class VehicleTracker:
         if self._tracks and detections:
             n_t = len(self._tracks)
             n_d = len(detections)
-
-            # IoU matrix between predicted track positions and new detections
             iou_mat = np.zeros((n_t, n_d), dtype=np.float32)
-            for ti, track in enumerate(self._tracks):
-                tb = (track.box["x1"], track.box["y1"],
-                      track.box["x2"], track.box["y2"])
+
+            predicted = [track.predicted_box(dt) for track in self._tracks]
+            for ti, pred in enumerate(predicted):
+                tb = (pred["x1"], pred["y1"], pred["x2"], pred["y2"])
                 for di, det in enumerate(detections):
                     db = (det["x1"], det["y1"], det["x2"], det["y2"])
                     iou_mat[ti, di] = _iou(tb, db)
 
-            # Greedy matching — highest IoU pair first
-            flat_order = np.argsort(-iou_mat.ravel())
-            for flat_idx in flat_order:
+            for flat_idx in np.argsort(-iou_mat.ravel()):
                 ti = int(flat_idx // n_d)
                 di = int(flat_idx % n_d)
                 if float(iou_mat[ti, di]) < self.MIN_IOU:
                     break
-                t_id = self._tracks[ti].track_id
-                if t_id in matched_track_ids or di in matched_det_indices:
+                track_id = self._tracks[ti].track_id
+                if track_id in matched_track_ids or di in matched_det_indices:
                     continue
-                self._tracks[ti].update(detections[di])
-                matched_track_ids.add(t_id)
+                self._tracks[ti].update(detections[di], dt)
+                matched_track_ids.add(track_id)
                 matched_det_indices.add(di)
 
-        # Spawn new tracks for unmatched detections
+        for track in self._tracks:
+            if track.track_id not in matched_track_ids:
+                track.coast(dt)
+
         for di, det in enumerate(detections):
             if di not in matched_det_indices:
                 self._tracks.append(_Track(self._next_id, det))
                 self._next_id += 1
 
-        # Expire dead tracks
-        self._tracks = [t for t in self._tracks if t.missed <= self.MAX_MISSED]
+        self._tracks = [track for track in self._tracks if track.missed <= self.MAX_MISSED]
 
-        # Return all live tracks with tracking metadata
         result: list[dict] = []
-        for t in self._tracks:
-            box = dict(t.box)
-            box["track_id"] = t.track_id
-            box["coasting"] = t.coasting
+        for track in self._tracks:
+            box = dict(track.box)
+            box["track_id"] = track.track_id
+            box["coasting"] = track.coasting
+            box["age"] = track.age
+            box["vx"] = track._vx_ps
+            box["vy"] = track._vy_ps
             result.append(box)
         return result
 

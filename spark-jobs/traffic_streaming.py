@@ -104,6 +104,29 @@ def main() -> None:
         .start()
     )
 
+    # Sensor metadata is upserted by camera_id so Cassandra keeps the latest
+    # known description/location for each sensor.
+    metadata = events.select(
+        col("camera_id"),
+        col("camera_name"),
+        col("location"),
+        col("city"),
+        col("latitude"),
+        col("longitude"),
+        col("source"),
+        col("event_time").alias("updated_at"),
+    )
+
+    metadata_query = (
+        metadata.writeStream
+        .format("org.apache.spark.sql.cassandra")
+        .option("keyspace", CASSANDRA_KEYSPACE)
+        .option("table", "sensor_metadata")
+        .option("checkpointLocation", "/tmp/spark-checkpoint/metadata")
+        .outputMode("append")
+        .start()
+    )
+
     # ── 1-minute tumbling window aggregations per camera ──────────────────────
     aggregated = (
         events
@@ -143,8 +166,7 @@ def main() -> None:
     print(f"  Cassandra: {CASSANDRA_HOST} / keyspace={CASSANDRA_KEYSPACE}")
     print("Press Ctrl+C to stop.")
 
-    snapshot_query.awaitTermination()
-    aggregate_query.awaitTermination()
+    spark.streams.awaitAnyTermination()
 
 
 if __name__ == "__main__":

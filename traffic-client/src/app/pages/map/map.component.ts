@@ -46,6 +46,14 @@ interface Alert {
   level: 'high' | 'medium' | 'low'; message: string; time: string;
 }
 
+interface SmartRecommendation {
+  best: CameraSnapshot;
+  worst: CameraSnapshot;
+  bestScore: number;
+  worstScore: number;
+  message: string;
+}
+
 // Professional camera/sensor pin
 function sensorIcon(color: string, name: string, count: number, active: boolean): L.DivIcon {
   const pulse = active
@@ -126,6 +134,28 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   });
   totalColor      = computed(() => DENSITY_COLOR[this.avgDensity()] ?? '#374151');
   avgDensityColor = computed(() => DENSITY_COLOR[this.avgDensity()] ?? '#374151');
+  smartRecommendation = computed<SmartRecommendation | null>(() => {
+    const snaps = this.snapshots();
+    if (!snaps.length) return null;
+
+    const ranked = [...snaps]
+      .map(snap => ({ snap, score: this.congestionScore(snap) }))
+      .sort((a, b) => a.score - b.score);
+
+    const best = ranked[0];
+    const worst = ranked[ranked.length - 1];
+    const message = best.snap.density === 'Low'
+      ? `${best.snap.cameraName} is currently the clearest route.`
+      : `${best.snap.cameraName} is the least congested option right now.`;
+
+    return {
+      best: best.snap,
+      worst: worst.snap,
+      bestScore: best.score,
+      worstScore: worst.score,
+      message,
+    };
+  });
 
   private map!: L.Map;
   private markers  = new Map<string, L.Marker>();
@@ -351,6 +381,18 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
   densityColor(d: string)  { return DENSITY_COLOR[d]  ?? '#374151'; }
   densityBg(d: string)     { return DENSITY_BG[d]     ?? 'rgba(0,0,0,.06)'; }
   densityPctOf(d: string)  { return DENSITY_PCT[d]    ?? 20; }
+  congestionScore(snap: CameraSnapshot) {
+    const densityWeight = snap.density === 'High' ? 70 : snap.density === 'Medium' ? 35 : 8;
+    const vehicleWeight = Math.min(snap.totalVehicles * 2, 60);
+    const heavyVehicleWeight = Math.min((snap.trucks + snap.buses) * 3, 18);
+    return Math.min(Math.round(densityWeight + vehicleWeight + heavyVehicleWeight), 100);
+  }
+  etaDelay(score: number) {
+    if (score >= 85) return '10+ min delay';
+    if (score >= 55) return '5-10 min delay';
+    if (score >= 30) return '2-5 min delay';
+    return '<2 min delay';
+  }
   pct(val: number, max: number) { return Math.min((val / max) * 100, 100); }
   formatCountdown(s: number) {
     const m = Math.floor(s / 60), sec = s % 60;

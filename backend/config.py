@@ -90,4 +90,62 @@ MAX_HISTORY_ENTRIES = 150
 YOLO_MODEL = "yolov8n.pt"
 
 # Detection confidence threshold
-DETECTION_CONFIDENCE = 0.4
+DETECTION_CONFIDENCE = 0.32
+
+# Real-time detection tuning
+YOLO_IMAGE_SIZE = 640
+YOLO_MAX_DETECTIONS = 80
+YOLO_INFERENCE_INTERVAL_SECONDS = 0.12
+STREAM_BUFFER_SIZE = 1
+JPEG_QUALITY = 76
+STREAM_OPEN_TIMEOUT_MS = 5000
+STREAM_READ_TIMEOUT_MS = 2500
+STREAM_RECONNECT_DELAY_SECONDS = 0.25
+
+# Approximate speed calibration. Real km/h from a single CCTV camera needs
+# road calibration, so these values use perspective-aware estimates.
+DEFAULT_METERS_PER_PIXEL = 0.05
+CAMERA_METERS_PER_PIXEL = {
+    "pejton": 0.05,
+    "pejton2": 0.05,
+    "tokbashqe": 0.045,
+}
+CAMERA_PERSPECTIVE_METERS_PER_PIXEL = {
+    # near = bottom of image, far = top of image
+    "pejton": {"near": 0.030, "far": 0.115},
+    "pejton2": {"near": 0.030, "far": 0.115},
+    "tokbashqe": {"near": 0.028, "far": 0.100},
+}
+
+# Direction calibration per camera. The vector is the main road axis in image
+# coordinates; positive movement gets positive_label, negative gets negative_label.
+CAMERA_DIRECTION_AXES = {
+    "pejton": {
+        "axis": (1.0, 0.0),
+        "positive_label": "Djathtas",
+        "negative_label": "Majtas",
+    },
+    "pejton2": {
+        "axis": (1.0, 0.0),
+        "positive_label": "Djathtas",
+        "negative_label": "Majtas",
+    },
+    "tokbashqe": {
+        "axis": (1.0, 0.0),
+        "positive_label": "Djathtas",
+        "negative_label": "Majtas",
+    },
+}
+
+# Lane split by horizontal image position. Vehicles with bottom-center x below
+# split_x_ratio are counted in the left lane; the rest in the right lane.
+CAMERA_LANE_SPLITS = {
+    "pejton": {"split_x_ratio": 0.50, "left_label": "Korsia Majtas", "right_label": "Korsia Djathtas"},
+    "pejton2": {"split_x_ratio": 0.50, "left_label": "Korsia Majtas", "right_label": "Korsia Djathtas"},
+    "tokbashqe": {"split_x_ratio": 0.50, "left_label": "Korsia Majtas", "right_label": "Korsia Djathtas"},
+}
+
+STOPPED_VEHICLE_ALERT_THRESHOLD = 15
+STOPPED_VEHICLE_HIGH_TRAFFIC_THRESHOLD = 6
+STOPPED_VEHICLE_CONFIRM_FRAMES = 4
+STOPPED_VEHICLE_SPEED_PX_THRESHOLD = 4.0

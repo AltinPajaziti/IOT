@@ -12,7 +12,14 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 
-from config import VEHICLE_CLASSES, DETECTION_CONFIDENCE, DENSITY_THRESHOLDS, YOLO_MODEL
+from config import (
+    VEHICLE_CLASSES,
+    DETECTION_CONFIDENCE,
+    DENSITY_THRESHOLDS,
+    YOLO_MODEL,
+    YOLO_IMAGE_SIZE,
+    YOLO_MAX_DETECTIONS,
+)
 
 
 @dataclass
@@ -26,6 +33,14 @@ class DetectionResult:
     density: str = "Low"
     frame_width: int = 0
     frame_height: int = 0
+    avg_speed_kmh: float = 0.0
+    max_speed_kmh: float = 0.0
+    direction_counts: dict[str, int] = field(default_factory=dict)
+    lane_counts: dict[str, int] = field(default_factory=dict)
+    densest_lane: str = ""
+    stopped_vehicles: int = 0
+    stopped_alarm: bool = False
+    alarm_message: str = ""
 
 
 class VehicleDetector:
@@ -48,17 +63,54 @@ class VehicleDetector:
         print(f"[Detector] Loading {YOLO_MODEL} …")
         self.model = YOLO(YOLO_MODEL)
         self.conf = DETECTION_CONFIDENCE
+        self.imgsz = YOLO_IMAGE_SIZE
+        self.max_det = YOLO_MAX_DETECTIONS
+        self.classes = list(VEHICLE_CLASSES.keys())
+        self.device = self._detect_device()
+        self.half = self.device == "cuda"
+        try:
+            self.model.fuse()
+        except Exception:
+            pass
         self._infer_lock = threading.Lock()
         self._initialized = True
-        print("[Detector] Model ready.")
+        print(f"[Detector] Model ready on {self.device} (imgsz={self.imgsz}, conf={self.conf}).")
+
+    def _detect_device(self) -> str:
+        try:
+            import torch
+            return "cuda" if torch.cuda.is_available() else "cpu"
+        except Exception:
+            return "cpu"
 
     def infer(self, frame: np.ndarray) -> list[dict]:
         """
         Run inference on `frame` (serialised — only one call at a time).
         Returns a list of dicts: {x1, y1, x2, y2, cls_id, label, conf}
         """
+        h, w = frame.shape[:2]
+        scale = 1.0
+        infer_frame = frame
+        longest = max(h, w)
+        if longest > self.imgsz:
+            scale = self.imgsz / float(longest)
+            infer_frame = cv2.resize(
+                frame,
+                (int(w * scale), int(h * scale)),
+                interpolation=cv2.INTER_AREA,
+            )
+
         with self._infer_lock:
-            results = self.model(frame, conf=self.conf, verbose=False)
+            results = self.model.predict(
+                infer_frame,
+                conf=self.conf,
+                imgsz=self.imgsz,
+                classes=self.classes,
+                max_det=self.max_det,
+                device=self.device,
+                half=self.half,
+                verbose=False,
+            )
 
         boxes = []
         for result in results:
@@ -68,9 +120,19 @@ class VehicleDetector:
                 cls_id = int(box.cls[0])
                 if cls_id not in VEHICLE_CLASSES:
                     continue
-                x1, y1, x2, y2 = map(int, box.xyxy[0])
+                x1, y1, x2, y2 = map(float, box.xyxy[0])
+                if scale != 1.0:
+                    x1, y1, x2, y2 = x1 / scale, y1 / scale, x2 / scale, y2 / scale
+                bw = max(1.0, x2 - x1)
+                bh = max(1.0, y2 - y1)
+                if bw < 12 or bh < 12:
+                    continue
+                if bw / w > 0.65 and bh / h > 0.12:
+                    continue
+                if (bw * bh) / float(w * h) > 0.35:
+                    continue
                 boxes.append({
-                    "x1": x1, "y1": y1, "x2": x2, "y2": y2,
+                    "x1": int(x1), "y1": int(y1), "x2": int(x2), "y2": int(y2),
                     "cls_id": cls_id,
                     "label": VEHICLE_CLASSES[cls_id],
                     "conf": float(box.conf[0]),
@@ -166,7 +228,11 @@ def draw_boxes(frame: np.ndarray, boxes: list[dict]) -> np.ndarray:
 
         # Label pill with track ID
         id_prefix = f"#{track_id}  " if track_id != "" else ""
-        text = f"{id_prefix}{label}  {conf:.0%}"
+        direction = b.get("direction")
+        lane = b.get("lane")
+        direction_text = f"  {direction}" if direction else ""
+        lane_text = f"  {lane}" if lane else ""
+        text = f"{id_prefix}{label}  {conf:.0%}{direction_text}{lane_text}"
         font, scale, thick = cv2.FONT_HERSHEY_SIMPLEX, 0.48, 1
         (tw, th), _ = cv2.getTextSize(text, font, scale, thick)
         pad = 4
@@ -190,8 +256,27 @@ def draw_stats_overlay(
     total: int,
     density: str,
     fps: float,
+    avg_speed_kmh: float = 0.0,
+    max_speed_kmh: float = 0.0,
+    direction_counts: dict[str, int] | None = None,
+    lane_counts: dict[str, int] | None = None,
+    densest_lane: str = "",
+    stopped_vehicles: int = 0,
+    alarm_message: str = "",
 ) -> None:
     """Semi-transparent stats box top-left."""
+    direction_counts = direction_counts or {}
+    lane_counts = lane_counts or {}
+    direction_lines = [
+        f"{name}: {count}"
+        for name, count in direction_counts.items()
+        if count > 0
+    ][:2]
+    lane_lines = [
+        f"{name}: {count}"
+        for name, count in lane_counts.items()
+        if count > 0
+    ][:2]
     lines = [
         f"Vehicles: {total}",
         f"Cars:  {counts.get('car', 0)}",
@@ -199,11 +284,17 @@ def draw_stats_overlay(
         f"Buses: {counts.get('bus', 0)}",
         f"Motos: {counts.get('motorcycle', 0)}",
         f"Density: {density}",
+        *direction_lines,
+        *lane_lines,
+        f"Dense lane: {densest_lane}" if densest_lane else "",
+        f"Stopped: {stopped_vehicles}" if stopped_vehicles else "",
+        f"ALARM: {alarm_message}" if alarm_message else "",
         f"FPS: {fps:.1f}",
     ]
+    lines = [line for line in lines if line]
     density_color = {"Low": (0, 230, 80), "Medium": (30, 165, 255), "High": (60, 60, 255)}
     lh, pad = 20, 7
-    bw, bh = 150, lh * len(lines) + pad * 2
+    bw, bh = 230, lh * len(lines) + pad * 2
 
     overlay = frame.copy()
     cv2.rectangle(overlay, (5, 5), (5 + bw, 5 + bh), (8, 8, 8), -1)

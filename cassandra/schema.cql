@@ -24,6 +24,18 @@ CREATE TABLE IF NOT EXISTS sensor_snapshots (
   PRIMARY KEY (camera_id, captured_at)
 ) WITH CLUSTERING ORDER BY (captured_at DESC);
 
+-- Sensor/camera metadata discovered from live sensor events
+CREATE TABLE IF NOT EXISTS sensor_metadata (
+  camera_id       text PRIMARY KEY,
+  camera_name     text,
+  location        text,
+  city            text,
+  latitude        double,
+  longitude       double,
+  source          text,
+  updated_at      timestamp
+);
+
 -- Sliding-window aggregates (Spark Streaming 1-minute tumbling windows)
 CREATE TABLE IF NOT EXISTS sensor_aggregates (
   camera_id       text,

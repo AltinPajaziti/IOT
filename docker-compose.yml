@@ -1,9 +1,79 @@
-# IoT pipeline stack (Professor requirements: Kafka + Cassandra)
+# IoT pipeline stack (Professor requirements: Kafka + Spark + Cassandra)
 # Start: docker compose up -d
 # Kafka UI: http://localhost:8080
-# Cassandra CQL: localhost:9042
+# Cassandra CQL: localhost:3004
+# Spark Master UI: http://localhost:8081
+# Spark Worker UI: http://localhost:8082
+# Spark Streaming App UI: http://localhost:4040
 
 services:
+  spark-master:
+    image: spark:3.5.0
+    container_name: ioth-spark-master
+    ports:
+      - "8081:8080"
+      - "7077:7077"
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.master.Master"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+      cassandra:
+        condition: service_healthy
+
+  spark-worker:
+    image: spark:3.5.0
+    container_name: ioth-spark-worker
+    ports:
+      - "8082:8081"
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.worker.Worker", "spark://spark-master:7077"]
+    depends_on:
+      - spark-master
+
+  spark-streaming:
+    image: spark:3.5.0
+    container_name: ioth-spark-streaming
+    user: root
+    ports:
+      - "4040:4040"
+    working_dir: /opt/ioth/spark-jobs
+    volumes:
+      - ./spark-jobs:/opt/ioth/spark-jobs:ro
+      - spark_checkpoints:/tmp/spark-checkpoint
+      - spark_ivy_cache:/tmp/.ivy2
+    environment:
+      HOME: /tmp
+      KAFKA_BOOTSTRAP: kafka:29092
+      KAFKA_TOPIC: traffic-sensor-events
+      CASSANDRA_HOST: cassandra
+      CASSANDRA_KEYSPACE: traffic_iot
+    command:
+      [
+        "/bin/bash",
+        "-lc",
+        "mkdir -p /tmp/.ivy2/cache /tmp/.ivy2/jars /tmp/spark-checkpoint && exec /opt/spark/bin/spark-submit --master spark://spark-master:7077 --conf spark.jars.ivy=/tmp/.ivy2 --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.3,com.datastax.spark:spark-cassandra-connector_2.12:3.5.0 /opt/ioth/spark-jobs/traffic_streaming.py"
+      ]
+    depends_on:
+      kafka:
+        condition: service_healthy
+      cassandra:
+        condition: service_healthy
+      spark-master:
+        condition: service_started
+      spark-worker:
+        condition: service_started
+    restart: unless-stopped
+
+  cassandra-web:
+    image: ipushc/cassandra-web
+    container_name: ioth-cassandra-web
+    ports:
+      - "3004:8083"
+    environment:
+      CASSANDRA_HOST: cassandra
+      CASSANDRA_PORT: 9042
+    depends_on:
+      cassandra:
+        condition: service_healthy
   kafka:
     image: apache/kafka:3.7.0
     container_name: ioth-kafka
@@ -65,3 +135,5 @@ services:
 volumes:
   kafka_data:
   cassandra_data:
+  spark_checkpoints:
+  spark_ivy_cache:

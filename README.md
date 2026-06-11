@@ -140,33 +140,36 @@ IOT/
 
 ## Running the Platform
 
-### IoT Infrastructure First: Kafka + Cassandra
+### IoT Infrastructure First: Kafka + Spark + Cassandra
 
 Docker Desktop must be running. In its own PowerShell terminal, start Kafka,
-Cassandra, Kafka UI, and initialize the `traffic_iot` Cassandra schema:
+Spark Master/Worker, the Spark Streaming job, Cassandra, Kafka UI, and
+initialize the `traffic_iot` Cassandra schema:
 
 ```powershell
 .\scripts\start-iot-stack.ps1
 ```
 
-The Python backend starts a sensor simulator and a development stream processor
-automatically. Sensor events flow through:
+The Python backend publishes YOLO and simulator events to Kafka. Spark Streaming
+consumes those events and writes processed sensor data to Cassandra:
 
 ```text
-Sensors / Simulator -> Kafka -> Stream Processor -> Cassandra -> Map Client
+Sensors / Simulator -> Kafka -> Spark Streaming -> Cassandra -> Map Client
 ```
 
 > **Kafka UI:** http://localhost:8080  
+> **Spark Master UI:** http://localhost:8081  
+> **Spark App UI:** http://localhost:4040  
 > **Kafka topic:** `traffic-sensor-events`  
 > **Cassandra keyspace:** `traffic_iot`
 
 Use these five terminals for the complete IoT-enabled platform:
 
 ```powershell
-# Terminal 1 - Kafka, Cassandra, and Kafka UI
+# Terminal 1 - Kafka, Spark, Cassandra, and UIs
 .\scripts\start-iot-stack.ps1
 
-# Terminal 2 - FastAPI, simulator, and development stream processor
+# Terminal 2 - FastAPI, YOLO producer, and simulator
 cd backend
 .venv\Scripts\uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
@@ -183,15 +186,9 @@ cd traffic-client
 npm start -- --port 4201
 ```
 
-For the professor presentation, Apache Spark replaces the Python development
-stream processor. Install Java 11+ and Spark 3.5+, set
-`STREAM_PROCESSOR_FALLBACK=false` before starting FastAPI, then run:
-
-```powershell
-cd spark-jobs
-pip install -r requirements.txt
-spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.3,com.datastax.spark:spark-cassandra-connector_2.12:3.5.0 traffic_streaming.py
-```
+The Spark job runs automatically as the `ioth-spark-streaming` Docker service.
+The Python fallback stream processor is disabled by default so Spark is the
+component that consumes Kafka and writes to Cassandra.
 
 ### 1 · Python Backend (port 8000)
 

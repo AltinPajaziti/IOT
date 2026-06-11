@@ -235,6 +235,44 @@
   <!-- ══════════════ RIGHT INSPECTOR ══════════════ -->
   <aside class="inspector">
 
+    <!-- Smart route advisor -->
+    <section class="panel">
+      <h2>Smart Route Advisor <span class="tag blue">AI</span></h2>
+      @if (smartRecommendation(); as rec) {
+        <div class="advisor-card">
+          <div class="advisor-kicker">Recommended route</div>
+          <button class="advisor-main" (click)="selectCamera(rec.best)">
+            <span>
+              <strong>{{ rec.best.cameraName }}</strong>
+              <small>{{ rec.best.location }}</small>
+            </span>
+            <b [style.color]="densityColor(rec.best.density)">{{ rec.best.density }}</b>
+          </button>
+          <div class="advisor-score">
+            <div class="score-row">
+              <span>Congestion score</span>
+              <strong>{{ rec.bestScore }}/100</strong>
+            </div>
+            <div class="score-bar">
+              <i [style.width.%]="rec.bestScore" [style.background]="densityColor(rec.best.density)"></i>
+            </div>
+            <div class="score-foot">
+              <span>{{ etaDelay(rec.bestScore) }}</span>
+              <span>{{ rec.best.totalVehicles }} vehicles</span>
+            </div>
+          </div>
+          <p class="advisor-message">{{ rec.message }}</p>
+          @if (rec.worst.cameraId !== rec.best.cameraId) {
+            <button class="avoid-route" (click)="selectCamera(rec.worst)">
+              Avoid: {{ rec.worst.cameraName }} · {{ rec.worstScore }}/100 · {{ etaDelay(rec.worstScore) }}
+            </button>
+          }
+        </div>
+      } @else {
+        <div class="no-data-small">Waiting for route data...</div>
+      }
+    </section>
+
     <!-- Selected camera detail -->
     <section class="panel">
       <h2>Camera Inspector</h2>

@@ -218,6 +218,24 @@ $accent:  #3b82f6;
   .ring { width: 28px; height: 28px; border: 2.5px solid #e2e8f0; border-top-color: $accent; border-radius: 50%; animation: spin .7s linear infinite; }
 }
 
+/* Smart route advisor */
+.advisor-card { padding: 12px; border: 1px solid rgba(59,130,246,.22); border-radius: 10px; background: linear-gradient(180deg, rgba(59,130,246,.08), #fff); }
+.advisor-kicker { margin-bottom: 7px; font-size: 9.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: $accent; }
+.advisor-main, .avoid-route { width: 100%; border-radius: 9px; cursor: pointer; text-align: left; }
+.advisor-main {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px; border: 1px solid $border; background: $surface;
+  span { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
+  strong { color: $text; font-size: 14px; }
+  small { color: $muted; font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  b { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+}
+.advisor-score { margin-top: 10px; padding: 10px; border: 1px solid $border; border-radius: 9px; background: rgba(255,255,255,.72); }
+.score-row, .score-foot { display: flex; justify-content: space-between; gap: 8px; font-size: 10.5px; color: $muted; strong { color: $text; font-size: 12px; } }
+.score-bar { height: 6px; margin: 7px 0; overflow: hidden; border-radius: 999px; background: #e5e7eb; i { display: block; height: 100%; border-radius: inherit; transition: width .5s ease; } }
+.advisor-message { margin: 9px 0 0; font-size: 11.5px; line-height: 1.45; color: $text; }
+.avoid-route { margin-top: 9px; padding: 8px 10px; border: 1px solid #fecaca; background: #fef2f2; color: #b91c1c; font-size: 11px; font-weight: 700; }
+
 /* ── Camera detail (inspector) ── */
 .cam-detail {
   .cd-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
