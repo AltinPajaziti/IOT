@@ -109,8 +109,8 @@ def publish_event(event: dict[str, Any]) -> bool:
     if producer is None:
         return False
     try:
-        producer.send(KAFKA_TOPIC, event)
-        producer.flush(timeout=5)
+        future = producer.send(KAFKA_TOPIC, event)
+        future.add_errback(lambda exc: logger.warning("Kafka publish failed: %s", exc))
         _events_sent += 1
         _last_error = None
         return True

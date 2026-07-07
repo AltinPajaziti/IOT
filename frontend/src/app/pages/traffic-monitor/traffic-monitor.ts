@@ -144,7 +144,7 @@ export class TrafficMonitorComponent implements OnInit, OnDestroy {
 
   private _startPolling(cameraId: string): void {
     this.pollSub = this.trafficSvc
-      .pollStats(cameraId, 1500)
+      .pollStats(cameraId, 500)
       .pipe(catchError(() => of(null)))
       .subscribe((s) => {
         if (s && 'total_vehicles' in s) this.stats.set(s as TrafficStats);

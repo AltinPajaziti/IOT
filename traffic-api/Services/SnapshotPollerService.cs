@@ -6,8 +6,8 @@ using TrafficApi.Models;
 namespace TrafficApi.Services;
 
 /// <summary>
-/// Background service that polls the Python backend every <see cref="PollIntervalMinutes"/>
-/// minutes, stores a snapshot per camera in SQL Server, and prunes records older
+/// Background service that polls the Python backend every few seconds
+/// stores a snapshot per camera in SQL Server, and prunes records older
 /// than <see cref="RetentionHours"/> hours.
 /// </summary>
 public class SnapshotPollerService(
@@ -16,7 +16,7 @@ public class SnapshotPollerService(
     ILogger<SnapshotPollerService> logger,
     IConfiguration config) : BackgroundService
 {
-    private static readonly TimeSpan PollInterval  = TimeSpan.FromMinutes(1);
+    private static readonly TimeSpan PollInterval  = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan RetentionTime = TimeSpan.FromHours(24);
 
     // Known camera coordinates (Prishtina)

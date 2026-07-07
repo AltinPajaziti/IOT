@@ -105,7 +105,7 @@ async def stream_camera(camera_id: str, request: Request):
     return StreamingResponse(
         _mjpeg_generator(worker),
         media_type="multipart/x-mixed-replace; boundary=frame",
-        headers={"Cache-Control": "no-cache"},
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache", "X-Accel-Buffering": "no"},
     )
 
 
@@ -119,7 +119,7 @@ async def _mjpeg_generator(worker) -> AsyncGenerator[bytes, None]:
                 + frame_bytes
                 + b"\r\n"
             )
-        await asyncio.sleep(0.05)  # ~20 fps cap for the HTTP stream
+        await asyncio.sleep(0.02)  # ~50 fps cap; browser receives the newest encoded frame
 
 
 # ── history ───────────────────────────────────────────────────────────────────

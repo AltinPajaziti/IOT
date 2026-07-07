@@ -9,7 +9,7 @@ namespace TrafficApi.Controllers;
 public class SettingsController(TrafficDbContext db) : ControllerBase
 {
     public const string RefreshSecondsKey = "RefreshSeconds";
-    public const int DefaultRefreshSeconds = 15;
+    public const int DefaultRefreshSeconds = 2;
 
     /// <summary>Client-facing settings stored in SQL Server.</summary>
     [HttpGet]
@@ -20,7 +20,7 @@ public class SettingsController(TrafficDbContext db) : ControllerBase
             .Select(s => s.Value)
             .FirstOrDefaultAsync();
 
-        var seconds = int.TryParse(raw, out var n) && n >= 5 && n <= 300
+        var seconds = int.TryParse(raw, out var n) && n >= 1 && n <= 300
             ? n
             : DefaultRefreshSeconds;
 

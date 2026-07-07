@@ -101,6 +101,7 @@ def main() -> None:
         .option("table", "sensor_snapshots")
         .option("checkpointLocation", "/tmp/spark-checkpoint/snapshots")
         .outputMode("append")
+        .trigger(processingTime="2 seconds")
         .start()
     )
 
@@ -124,6 +125,7 @@ def main() -> None:
         .option("table", "sensor_metadata")
         .option("checkpointLocation", "/tmp/spark-checkpoint/metadata")
         .outputMode("append")
+        .trigger(processingTime="2 seconds")
         .start()
     )
 
@@ -158,6 +160,7 @@ def main() -> None:
         .option("table", "sensor_aggregates")
         .option("checkpointLocation", "/tmp/spark-checkpoint/aggregates")
         .outputMode("append")
+        .trigger(processingTime="2 seconds")
         .start()
     )
 

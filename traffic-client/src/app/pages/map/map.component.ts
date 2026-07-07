@@ -9,7 +9,7 @@ import { TrafficApiService, CameraSnapshot } from '../../services/traffic-api.se
 import { PipelineService, PipelineStatus } from '../../services/pipeline.service';
 import { ChatbotComponent } from '../../components/chatbot/chatbot.component';
 
-const DEFAULT_REFRESH_MS = 15 * 1000;
+const DEFAULT_REFRESH_MS = 2 * 1000;
 
 const DENSITY_COLOR: Record<string, string> = {
   Low:    '#22c55e',
@@ -170,16 +170,16 @@ export class MapComponent implements OnInit, AfterViewInit, OnDestroy {
       this.pipelineSvc.getStatus().pipe(catchError(() => of(null))).subscribe(s => {
         if (s) this.pipeline.set(s);
       });
-    }, 10000);
+    }, 3000);
   }
 
   ngOnInit() {
     forkJoin({
-      settings: this.api.getSettings().pipe(catchError(() => of({ refreshSeconds: 15 }))),
+      settings: this.api.getSettings().pipe(catchError(() => of({ refreshSeconds: 2 }))),
       data: this.api.getLatest().pipe(catchError(() => of(null as CameraSnapshot[] | null))),
       pipeline: this.pipelineSvc.getStatus().pipe(catchError(() => of(null))),
     }).subscribe(({ settings, data, pipeline }) => {
-      const ms = Math.max(5, settings.refreshSeconds) * 1000;
+      const ms = Math.max(1, settings.refreshSeconds) * 1000;
       this.refreshMs.set(ms);
       this.countdown.set(ms / 1000);
       this.loading.set(false);

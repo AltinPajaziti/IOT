@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, interval, switchMap, shareReplay, BehaviorSubject } from 'rxjs';
+import { Observable, interval, switchMap, shareReplay, startWith } from 'rxjs';
 
 export interface Camera {
   id: string;
@@ -48,8 +48,9 @@ export class TrafficService {
     return this.http.get<TrafficStats>(`${this.API_BASE}/api/traffic/stats/${cameraId}`);
   }
 
-  pollStats(cameraId: string, intervalMs = 1500): Observable<TrafficStats | null> {
+  pollStats(cameraId: string, intervalMs = 500): Observable<TrafficStats | null> {
     return interval(intervalMs).pipe(
+      startWith(0),
       switchMap(() => this.getStats(cameraId)),
       shareReplay(1),
     );
